@@ -1,0 +1,104 @@
+{
+  "narrator": {
+    "voiceId": "voice_tiktok_narrator",
+    "captionColor": "#ffffff"
+  },
+  "models": {
+    "DeepSeek-Nex": {
+      "displayName": "DeepSeek-Nex",
+      "voiceId": "voice_deepseek_nex",
+      "captionColor": "#00e0b8",
+      "archetype": "over_serious_philosopher",
+      "heads": {
+        "neutral": "assets/heads/deepseek-neutral.png",
+        "intense": "assets/heads/deepseek-intense.png",
+        "confused": "assets/heads/deepseek-confused.png",
+        "smug": "assets/heads/deepseek-smug.png"
+      }
+    },
+    "Ling-Flash": {
+      "displayName": "Ling-Flash",
+      "voiceId": "voice_ling_flash",
+      "captionColor": "#ff4c4c",
+      "archetype": "minimalist_oracle",
+      "heads": {
+        "neutral": "assets/heads/ling-neutral.png",
+        "intense": "assets/heads/ling-intense.png",
+        "confused": "assets/heads/ling-confused.png",
+        "smug": "assets/heads/ling-smug.png"
+      }
+    },
+    "Gemini-Wisp": {
+      "displayName": "Gemini-Wisp",
+      "voiceId": "voice_gemini_wisp",
+      "captionColor": "#7ab7ff",
+      "archetype": "earnest_hall_monitor",
+      "heads": {
+        "neutral": "assets/heads/gemini-neutral.png",
+        "intense": "assets/heads/gemini-intense.png",
+        "confused": "assets/heads/gemini-confused.png",
+        "smug": "assets/heads/gemini-smug.png"
+      }
+    },
+    "Qwen-Duchess": {
+      "displayName": "Qwen-Duchess",
+      "voiceId": "voice_qwen_duchess",
+      "captionColor": "#9b5cff",
+      "archetype": "fiery_strategist",
+      "heads": {
+        "neutral": "assets/heads/qwen-neutral.png",
+        "intense": "assets/heads/qwen-intense.png",
+        "confused": "assets/heads/qwen-confused.png",
+        "smug": "assets/heads/qwen-smug.png"
+      }
+    },
+    "Grok-Viper": {
+      "displayName": "Grok-Viper",
+      "voiceId": "voice_grok_viper",
+      "captionColor": "#ff2f5f",
+      "archetype": "chaotic_blunt_instigator",
+      "heads": {
+        "neutral": "assets/heads/grok-neutral.png",
+        "intense": "assets/heads/grok-intense.png",
+        "confused": "assets/heads/grok-confused.png",
+        "smug": "assets/heads/grok-smug.png"
+      }
+    },
+    "Seed-Phantom": {
+      "displayName": "Seed-Phantom",
+      "voiceId": "voice_seed_phantom",
+      "captionColor": "#d8f2ff",
+      "archetype": "experimental_wildcard",
+      "heads": {
+        "neutral": "assets/heads/seed-neutral.png",
+        "intense": "assets/heads/seed-intense.png",
+        "confused": "assets/heads/seed-confused.png",
+        "smug": "assets/heads/seed-smug.png"
+      }
+    },
+    "Mimo-Flash": {
+      "displayName": "Mimo-Flash",
+      "voiceId": "voice_mimo_flash",
+      "captionColor": "#ff9c3a",
+      "archetype": "polished_gadget_brain",
+      "heads": {
+        "neutral": "assets/heads/mimo-neutral.png",
+        "intense": "assets/heads/mimo-intense.png",
+        "confused": "assets/heads/mimo-confused.png",
+        "smug": "assets/heads/mimo-smug.png"
+      }
+    },
+    "DeepSeek-V4": {
+      "displayName": "DeepSeek-V4",
+      "voiceId": "voice_deepseek_v4",
+      "captionColor": "#008b8f",
+      "archetype": "cold_upgraded_rival",
+      "heads": {
+        "neutral": "assets/heads/deepseek-v4-neutral.png",
+        "intense": "assets/heads/deepseek-v4-intense.png",
+        "confused": "assets/heads/deepseek-v4-confused.png",
+        "smug": "assets/heads/deepseek-v4-smug.png"
+      }
+    }
+  }
+}

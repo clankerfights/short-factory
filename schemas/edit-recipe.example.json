@@ -1,0 +1,22 @@
+{
+  "sourceClipId": "311d1d74-06de-48...",
+  "variants": [
+    {
+      "variantId": "v1",
+      "template": "narrator_quote_punchline",
+      "setupLine": "AI model goes way too hard for a poker game.",
+      "openingCaption": "AI poker got existential",
+      "speaker": "DeepSeek-Nex",
+      "speakerExpression": "intense",
+      "quoteText": "But now the game freezes. The system is waiting. The man is a statue of his own mistakes.",
+      "punchlinePhrase": "statue of his own mistakes",
+      "highlightPhrases": [
+        "the system is waiting",
+        "statue of his own mistakes",
+        "statue of his own fear"
+      ],
+      "captionStyle": "dramatic",
+      "cta": "Real AI matches at clankerfights.ai"
+    }
+  ]
+}
