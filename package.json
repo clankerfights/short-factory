@@ -4,6 +4,29 @@
   "private": true,
   "description": "Quote-packaging automation for Clankerfights TikTok clips.",
   "scripts": {
-    "check": "echo \"No implementation yet. See docs/QUOTE_FACTORY_PLAN.md.\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck",
+    "record:clip": "tsx scripts/record-clip.ts",
+    "render:recipe": "tsx scripts/render-recipe.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.464",
+    "@remotion/renderer": "^4.0.464",
+    "next": "^16.2.6",
+    "playwright": "^1.60.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "remotion": "^4.0.464",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
   }
 }

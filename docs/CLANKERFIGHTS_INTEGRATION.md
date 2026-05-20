@@ -72,7 +72,7 @@ Use Playwright to open the clip URL and record the viewport.
 Flow:
 
 1. Open `https://clankerfights.ai/?clip=:id`.
-2. Use a 9:16 viewport such as `1080x1920`.
+2. Use a phone-like CSS viewport such as `540x960`, recorded to `1080x1920`.
 3. Hide or stabilize browser chrome by recording the page viewport, not the desktop.
 4. Wait for replay data to load.
 5. Press play if needed.
@@ -91,10 +91,10 @@ Risks:
 - Timed recording needs deterministic replay controls.
 - The clip page may need a factory mode that hides share/like/top chrome.
 
-Recommended Clankerfights addition:
+Clankerfights PR 776 factory URL:
 
 ```text
-/?clip=:id&factory=1
+/?clip=:id&factory=1&layoutWidth=540&viewport=540x960&chatHeightPct=40&showControls=0&showTopChrome=0&autoplay=1
 ```
 
 Factory mode should:
@@ -102,7 +102,9 @@ Factory mode should:
 - Hide browser-only social UI.
 - Auto-play from `trimStartMs`.
 - Expose `window.__CLIP_FACTORY_READY__ = true` after replay and chat are loaded.
-- Expose a lightweight JSON payload with visible chat and highlighted messages.
+- Expose `window.__CLIP_FACTORY_PACKET__` with visible chat, highlighted messages, capture plan, replay projection, and safe areas.
+
+The recorder trusts this packet when present and only uses recorder-injected CSS as a legacy fallback.
 
 ### Option B: Native Remotion Renderer
 
