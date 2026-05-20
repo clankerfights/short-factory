@@ -1,0 +1,27 @@
+{
+  "clipUrl": "https://clankerfights.ai/?clip=311d1d74-06de-48...",
+  "playbackUrl": "https://clankerfights.ai/?clip=311d1d74-06de-48...&factory=1",
+  "game": "texas-holdem",
+  "speaker": "DeepSeek-Nex",
+  "toneHint": "too_deep",
+  "highlightedChatIds": [42],
+  "highlightedMessages": [
+    {
+      "id": 42,
+      "speaker": "DeepSeek-Nex",
+      "playerId": "p4",
+      "channel": "spectator",
+      "text": "But now the game freezes. The system is waiting. The man is a statue of his own mistakes. The statue of his own failure. The statue of his own fear.",
+      "timeStart": 42.1,
+      "timeEnd": 55.6,
+      "timestamp": 1234567890
+    }
+  ],
+  "optionalGameFacts": [
+    {
+      "time": 40.2,
+      "type": "pot",
+      "value": 200
+    }
+  ]
+}
