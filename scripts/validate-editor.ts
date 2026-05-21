@@ -3,6 +3,7 @@ import { buildNarratorQuoteComposition } from "../src/lib/composition-builder";
 import {
   ensureUniqueCompositionIds,
   normalizeFreezes,
+  outputDurationForTimelineEdits,
   outputFrameForSourceFrame,
   rawFrameToSourceFrame,
   sortedLayers,
@@ -17,7 +18,12 @@ import { planHighlightReadFreezes } from "../src/lib/highlight-freeze-planner";
 import { normalizeClipDetailToQuoteJob } from "../src/lib/normalize-clip";
 import { editCompositionSchema } from "../src/lib/schemas";
 import type { ClipDetailWire } from "../src/lib/types";
-import type { TtsLayer, ZoomLayer } from "../src/lib/edit-model";
+import type { BaseRecordingTiming, TtsLayer, ZoomLayer } from "../src/lib/edit-model";
+import {
+  normalizeBaseRecordingTiming,
+  recordingFrameForOutputFrame,
+  recordingFrameForSourceFrame,
+} from "../src/lib/source-timeline";
 import { remotionAssetPath } from "../src/remotion/components/AudioLayer";
 
 const variant = {
@@ -102,12 +108,40 @@ const withFreeze = withFreezeEdits(composition, [
   { id: "freeze-a", atFrame: 30, durationFrames: 45 },
 ]);
 assert.equal(withFreeze.canvas.durationFrames, composition.canvas.durationFrames + 45);
+assert.equal(
+  outputDurationForTimelineEdits(sourceDurationOf(composition), withFreeze.timelineEdits),
+  sourceDurationOf(composition) + 45,
+);
 assert.equal(sourceFrameForOutputFrame(29, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 29);
 assert.equal(sourceFrameForOutputFrame(30, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
 assert.equal(sourceFrameForOutputFrame(74, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
 assert.equal(sourceFrameForOutputFrame(75, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
 assert.equal(sourceFrameForOutputFrame(76, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 31);
 assert.equal(outputFrameForSourceFrame(31, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 76);
+assert.equal(
+  outputDurationForTimelineEdits(sourceDurationOf(composition), {
+    playback: { speed: 2 },
+    freezes: [{ id: "speed-freeze", atFrame: 30, durationFrames: 45 }],
+  }),
+  Math.ceil(31 / 2) + 45 + Math.ceil((sourceDurationOf(composition) - 31) / 2),
+);
+assert.equal(
+  outputFrameForSourceFrame(60, undefined, sourceDurationOf(composition), { speed: 2 }),
+  30,
+);
+assert.equal(
+  sourceFrameForOutputFrame(30, undefined, sourceDurationOf(composition), { speed: 2 }),
+  60,
+);
+assert.equal(
+  outputFrameForSourceFrame(
+    31,
+    withFreeze.timelineEdits?.freezes,
+    sourceDurationOf(composition),
+    { speed: 2 },
+  ),
+  61,
+);
 assert.equal(remotionAssetPath("sound-effects/fahhhhh.mp3"), "assets/sound-effects/fahhhhh.mp3");
 assert.equal(remotionAssetPath("public/sound-effects/fahhhhh.mp3"), "assets/sound-effects/fahhhhh.mp3");
 assert.equal(remotionAssetPath("/public/sound-effects/fahhhhh.mp3"), "assets/sound-effects/fahhhhh.mp3");
@@ -177,6 +211,87 @@ assert.equal(
   100,
 );
 
+const baseTiming: BaseRecordingTiming = {
+  fps: 30,
+  recordedDurationFrames: 420,
+  clipStartFrame: 90,
+  clipEndFrame: 390,
+  clipDurationFrames: 300,
+  playbackRate: 1,
+  method: "backfill-detection",
+  confidence: "high",
+};
+assert.equal(
+  normalizeBaseRecordingTiming(baseTiming, 300, 30).clipStartFrame,
+  90,
+);
+assert.equal(
+  recordingFrameForSourceFrame({
+    sourceFrame: 0,
+    sourceDurationFrames: 300,
+    baseVideoTiming: baseTiming,
+    fps: 30,
+  }),
+  90,
+);
+assert.equal(
+  recordingFrameForSourceFrame({
+    sourceFrame: 10,
+    trim: { startFrame: 30, endFrame: 220 },
+    sourceDurationFrames: 300,
+    baseVideoTiming: baseTiming,
+    fps: 30,
+  }),
+  130,
+);
+assert.equal(
+  recordingFrameForOutputFrame({
+    outputFrame: 55,
+    freezes: [{ id: "freeze-source-50", atFrame: 50, durationFrames: 20 }],
+    sourceDurationFrames: 300,
+    baseVideoTiming: baseTiming,
+    fps: 30,
+  }),
+  140,
+);
+
+const acceleratedBaseTiming: BaseRecordingTiming = {
+  ...baseTiming,
+  clipEndFrame: 240,
+  playbackRate: 2,
+};
+assert.equal(
+  recordingFrameForSourceFrame({
+    sourceFrame: 10,
+    sourceDurationFrames: 300,
+    baseVideoTiming: acceleratedBaseTiming,
+    fps: 30,
+  }),
+  95,
+);
+assert.equal(
+  recordingFrameForSourceFrame({
+    sourceFrame: 10,
+    trim: { startFrame: 30, endFrame: 220 },
+    sourceDurationFrames: 300,
+    baseVideoTiming: acceleratedBaseTiming,
+    fps: 30,
+  }),
+  110,
+);
+assert.equal(
+  recordingFrameForOutputFrame({
+    outputFrame: 75,
+    freezes: [{ id: "freeze-source-50", atFrame: 50, durationFrames: 20 }],
+    trim: { startFrame: 10, endFrame: 200 },
+    sourceDurationFrames: 300,
+    baseVideoTiming: baseTiming,
+    fps: 30,
+  }),
+  155,
+);
+assert.equal(trimmedWithFreeze.timelineEdits?.trim?.startFrame, 60);
+
 const localClip = normalizeClipInput(
   "http://localhost:3000/?clip=efa6c416-5c5a-447b-aea4-5a2e343c8626",
   "https://clankerfights.ai",
@@ -239,6 +354,8 @@ const absoluteTrimJob = normalizeClipDetailToQuoteJob({
   },
 });
 assert.equal(absoluteTrimJob.highlightedMessages[0]?.id, 108);
+assert.equal(absoluteTrimJob.messages?.[0]?.id, 108);
+assert.equal(absoluteTrimJob.messages?.[0]?.highlighted, true);
 assert.equal(absoluteTrimJob.trimStartMs, 80);
 assert.equal(absoluteTrimJob.trimEndMs, 100);
 

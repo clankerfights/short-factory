@@ -1,27 +1,26 @@
-import { Freeze, OffthreadVideo, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { interpolate, useCurrentFrame } from "remotion";
 import type {
+  BaseRecordingTiming,
   EditComposition,
   VideoSourceLayer as VideoSourceLayerModel,
 } from "../../lib/edit-model";
-import {
-  normalizeFreezes,
-  normalizeTrim,
-  sourceDurationForTimelineEdits,
-} from "../../lib/composition-utils";
+import { outputDurationForTimelineEdits } from "../../lib/composition-utils";
+import { TimelineVideo } from "./TimelineVideo";
 
 export function VideoSourceLayer({
   layer,
   baseVideoSrc,
+  baseVideoTiming,
   timelineEdits,
+  fps = 30,
 }: {
   layer: VideoSourceLayerModel;
   baseVideoSrc: string;
+  baseVideoTiming?: BaseRecordingTiming;
   timelineEdits?: EditComposition["timelineEdits"];
+  fps?: number;
 }) {
   const frame = useCurrentFrame();
-  const source = baseVideoSrc.startsWith("http")
-    ? baseVideoSrc
-    : staticFile(baseVideoSrc);
   const scale = layer.animation?.scale
     ? interpolate(
         frame,
@@ -42,50 +41,18 @@ export function VideoSourceLayer({
     transform: `scale(${scale}) rotate(${layer.transform?.rotateDeg ?? 0}deg)`,
     filter: filterString(layer.filters),
   };
-  const trim = normalizeTrim(timelineEdits?.trim, layer.time.duration);
-  const sourceDuration = sourceDurationForTimelineEdits(layer.time.duration, timelineEdits);
-  const freezes = normalizeFreezes(timelineEdits?.freezes, sourceDuration);
 
-  if (freezes.length === 0) {
-    return <OffthreadVideo src={source} muted startFrom={trim.startFrame} style={style} />;
-  }
-
-  let sourceCursor = 0;
-  let outputCursor = 0;
-  const segments = [];
-
-  for (const freeze of freezes) {
-    const normalDuration = Math.max(0, freeze.atFrame - sourceCursor + 1);
-    if (normalDuration > 0) {
-      segments.push(
-        <Sequence key={`normal-${freeze.id}`} from={outputCursor} durationInFrames={normalDuration}>
-          <OffthreadVideo src={source} muted startFrom={trim.startFrame + sourceCursor} style={style} />
-        </Sequence>,
-      );
-      outputCursor += normalDuration;
-    }
-
-    segments.push(
-      <Sequence key={freeze.id} from={outputCursor} durationInFrames={freeze.durationFrames}>
-        <Freeze frame={0}>
-          <OffthreadVideo src={source} muted startFrom={trim.startFrame + freeze.atFrame} style={style} />
-        </Freeze>
-      </Sequence>,
-    );
-    outputCursor += freeze.durationFrames;
-    sourceCursor = Math.min(sourceDuration, freeze.atFrame + 1);
-  }
-
-  const tailDuration = Math.max(0, sourceDuration - sourceCursor);
-  if (tailDuration > 0) {
-    segments.push(
-      <Sequence key="normal-tail" from={outputCursor} durationInFrames={tailDuration}>
-        <OffthreadVideo src={source} muted startFrom={trim.startFrame + sourceCursor} style={style} />
-      </Sequence>,
-    );
-  }
-
-  return <>{segments}</>;
+  return (
+    <TimelineVideo
+      baseVideoSrc={baseVideoSrc}
+      baseVideoTiming={baseVideoTiming}
+      timelineEdits={timelineEdits}
+      rawSourceDurationFrames={layer.time.duration}
+      outputDurationFrames={outputDurationForTimelineEdits(layer.time.duration, timelineEdits)}
+      fps={fps}
+      style={style}
+    />
+  );
 }
 
 function filterString(filters: VideoSourceLayerModel["filters"]): string | undefined {

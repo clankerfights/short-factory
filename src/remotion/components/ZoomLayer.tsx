@@ -1,28 +1,29 @@
-import { OffthreadVideo, interpolate, staticFile, useCurrentFrame } from "remotion";
-import type { EditComposition, ZoomLayer as ZoomLayerModel } from "../../lib/edit-model";
-import {
-  sourceDurationForTimelineEdits,
-  sourceFrameForOutputFrame,
-  sourceFrameToRawFrame,
-} from "../../lib/composition-utils";
+import { interpolate, useCurrentFrame } from "remotion";
+import type {
+  BaseRecordingTiming,
+  EditComposition,
+  ZoomLayer as ZoomLayerModel,
+} from "../../lib/edit-model";
+import { TimelineVideo } from "./TimelineVideo";
 
 export function ZoomLayer({
   layer,
   baseVideoSrc,
+  baseVideoTiming,
   timelineEdits,
   canvas,
+  videoStartFrame,
   rawDurationFrames,
 }: {
   layer: ZoomLayerModel;
   baseVideoSrc: string;
+  baseVideoTiming?: BaseRecordingTiming;
   timelineEdits?: EditComposition["timelineEdits"];
   canvas: EditComposition["canvas"];
+  videoStartFrame: number;
   rawDurationFrames?: number;
 }) {
   const frame = useCurrentFrame();
-  const source = baseVideoSrc.startsWith("http")
-    ? baseVideoSrc
-    : staticFile(baseVideoSrc);
   const duration = Math.max(1, layer.time.duration);
   const localFrame = Math.max(0, frame);
   const startScale = canvas.width / layer.box.width;
@@ -45,23 +46,16 @@ export function ZoomLayer({
     easing,
   });
   const rawDuration = rawDurationFrames ?? canvas.durationFrames;
-  const trimmedDuration = sourceDurationForTimelineEdits(rawDuration, timelineEdits);
-  const sourceStart = sourceFrameForOutputFrame(
-    layer.time.start,
-    timelineEdits?.freezes,
-    trimmedDuration,
-  );
-  const rawStart = sourceFrameToRawFrame(
-    sourceStart,
-    timelineEdits?.trim,
-    rawDuration,
-  );
 
   return (
-    <OffthreadVideo
-      src={source}
-      muted
-      startFrom={rawStart}
+    <TimelineVideo
+      baseVideoSrc={baseVideoSrc}
+      baseVideoTiming={baseVideoTiming}
+      timelineEdits={timelineEdits}
+      rawSourceDurationFrames={rawDuration}
+      outputStartFrame={Math.max(0, layer.time.start - videoStartFrame)}
+      outputDurationFrames={duration}
+      fps={canvas.fps}
       style={{
         position: "absolute",
         inset: 0,

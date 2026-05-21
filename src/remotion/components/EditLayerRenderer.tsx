@@ -1,9 +1,6 @@
 import { Sequence } from "remotion";
-import type { EditComposition, EditLayer } from "../../lib/edit-model";
-import {
-  normalizeFreezes,
-  sourceDurationForTimelineEdits,
-} from "../../lib/composition-utils";
+import type { BaseRecordingTiming, EditComposition, EditLayer } from "../../lib/edit-model";
+import { outputDurationForTimelineEdits } from "../../lib/composition-utils";
 import { AudioLayer } from "./AudioLayer";
 import { CalloutLayer } from "./CalloutLayer";
 import { CtaLayer } from "./CtaLayer";
@@ -17,31 +14,36 @@ import { ZoomLayer } from "./ZoomLayer";
 export function EditLayerRenderer({
   layer,
   baseVideoSrc,
+  baseVideoTiming,
   timelineEdits,
   canvas,
+  videoStartFrame,
   rawDurationFrames,
 }: {
   layer: EditLayer;
   baseVideoSrc: string;
+  baseVideoTiming?: BaseRecordingTiming;
   timelineEdits?: EditComposition["timelineEdits"];
   canvas: EditComposition["canvas"];
+  videoStartFrame: number;
   rawDurationFrames?: number;
 }) {
   if (layer.hidden) return null;
   const duration =
     layer.kind === "video-source"
-      ? sourceDurationForTimelineEdits(layer.time.duration, timelineEdits) +
-        normalizeFreezes(
-          timelineEdits?.freezes,
-          sourceDurationForTimelineEdits(layer.time.duration, timelineEdits),
-        ).reduce(
-          (total, freeze) => total + freeze.durationFrames,
-          0,
-        )
+      ? outputDurationForTimelineEdits(layer.time.duration, timelineEdits)
       : layer.time.duration;
   return (
     <Sequence from={layer.time.start} durationInFrames={duration}>
-      {renderLayer(layer, baseVideoSrc, timelineEdits, canvas, rawDurationFrames)}
+      {renderLayer(
+        layer,
+        baseVideoSrc,
+        baseVideoTiming,
+        timelineEdits,
+        canvas,
+        videoStartFrame,
+        rawDurationFrames,
+      )}
     </Sequence>
   );
 }
@@ -49,8 +51,10 @@ export function EditLayerRenderer({
 function renderLayer(
   layer: EditLayer,
   baseVideoSrc: string,
+  baseVideoTiming?: BaseRecordingTiming,
   timelineEdits?: EditComposition["timelineEdits"],
   canvas?: EditComposition["canvas"],
+  videoStartFrame = 0,
   rawDurationFrames?: number,
 ) {
   if (layer.kind === "video-source") {
@@ -58,7 +62,9 @@ function renderLayer(
       <VideoSourceLayer
         layer={layer}
         baseVideoSrc={baseVideoSrc}
+        baseVideoTiming={baseVideoTiming}
         timelineEdits={timelineEdits}
+        fps={canvas?.fps}
       />
     );
   }
@@ -71,8 +77,10 @@ function renderLayer(
       <ZoomLayer
         layer={layer}
         baseVideoSrc={baseVideoSrc}
+        baseVideoTiming={baseVideoTiming}
         timelineEdits={timelineEdits}
         canvas={canvas}
+        videoStartFrame={videoStartFrame}
         rawDurationFrames={rawDurationFrames}
       />
     );

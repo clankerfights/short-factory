@@ -6,10 +6,14 @@ import type { RemotionFactoryProps } from "../types";
 
 export function NarratorQuotePunchline({
   baseVideoSrc,
+  baseVideoTiming,
   variant,
 }: RemotionFactoryProps) {
   const composition =
     variant.composition ?? buildNarratorQuoteComposition(variant);
+  const videoStartFrame =
+    composition.layers.find((candidate) => candidate.kind === "video-source")
+      ?.time.start ?? 0;
 
   return (
     <AbsoluteFill
@@ -23,8 +27,10 @@ export function NarratorQuotePunchline({
           key={layer.id}
           layer={layer}
           baseVideoSrc={baseVideoSrc}
+          baseVideoTiming={baseVideoTiming}
           timelineEdits={composition.timelineEdits}
           canvas={composition.canvas}
+          videoStartFrame={videoStartFrame}
           rawDurationFrames={
             composition.layers.find((candidate) => candidate.kind === "video-source")
               ?.time.duration

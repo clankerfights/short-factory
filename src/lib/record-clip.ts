@@ -2,10 +2,13 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { chromium, type Page } from "playwright";
 import {
+  DEFAULT_REPLAY_PLAYBACK_RATE,
   capturePlanStyle,
   createPhoneReplayCapturePlan,
 } from "./capture-plan";
-import type { ClipCapturePlan, ClipFactoryPacket } from "./edit-model";
+import type { BaseRecordingTiming, ClipCapturePlan, ClipFactoryPacket } from "./edit-model";
+import { TIKTOK_CANVAS } from "./edit-model";
+import { detectBaseRecordingTiming } from "./base-recording-timing";
 
 export type RecordClipOptions = {
   playbackUrl: string;
@@ -17,6 +20,7 @@ export type RecordClipOptions = {
 export type RecordClipResult = {
   outputPath: string;
   factoryPacket: ClipFactoryPacket | null;
+  baseRecordingTiming: BaseRecordingTiming;
 };
 
 export async function recordClipViewport(
@@ -26,6 +30,7 @@ export async function recordClipViewport(
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const capturePlan = options.capturePlan ?? createPhoneReplayCapturePlan();
   const viewport = capturePlan.viewport;
+  const playbackRate = capturePlan.replay.playbackRate ?? DEFAULT_REPLAY_PLAYBACK_RATE;
 
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -47,7 +52,9 @@ export async function recordClipViewport(
     if (!factoryPacket) {
       await applyCapturePlan(page, capturePlan);
     }
-    await tryStartPlayback(page, capturePlan);
+    if (!capturePlan.replay.autoplay) {
+      await tryStartPlayback(page, capturePlan);
+    }
     await page.waitForTimeout(options.durationSeconds * 1000);
 
     const video = page.video();
@@ -60,7 +67,15 @@ export async function recordClipViewport(
     await context.close();
     await saveVideo;
     await browser.close();
-    return { outputPath, factoryPacket };
+    const baseRecordingTiming = await detectBaseRecordingTiming({
+      videoPath: outputPath,
+      clipDurationFrames: Math.max(
+        1,
+        Math.round(options.durationSeconds * TIKTOK_CANVAS.fps),
+      ),
+      playbackRate,
+    });
+    return { outputPath, factoryPacket, baseRecordingTiming };
   } catch (error) {
     await context.close().catch(() => undefined);
     await browser.close().catch(() => undefined);

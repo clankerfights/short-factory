@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import type { FactoryJob } from "../lib/types";
 
 const DEFAULT_TEMPLATE_ID = "default-template1";
+const DEFAULT_CLIP_PLAYBACK_SPEED = 2;
+const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 1.25, 1.5, 2, 2.5, 3] as const;
 
 type ApiJobResponse = {
   job?: FactoryJob;
@@ -36,6 +38,7 @@ export default function Home() {
   const [hookText, setHookText] = useState("");
   const [finalMessageTone, setFinalMessageTone] = useState("");
   const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
+  const [clipPlaybackSpeed, setClipPlaybackSpeed] = useState(DEFAULT_CLIP_PLAYBACK_SPEED);
   const [templates, setTemplates] = useState<TemplateOption[]>(fallbackTemplates);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +76,7 @@ export default function Home() {
           hookText,
           finalMessageTone,
           templateId,
+          clipPlaybackSpeed,
         }),
       });
       const payload = (await response.json()) as ApiJobResponse;
@@ -162,6 +166,20 @@ export default function Home() {
                 <option value={template.id} key={template.id}>
                   {template.name}
                   {template.version ? ` v${template.version}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Gameplay speed</span>
+            <select
+              value={clipPlaybackSpeed}
+              onChange={(event) => setClipPlaybackSpeed(Number(event.target.value))}
+            >
+              {CLIP_PLAYBACK_SPEED_OPTIONS.map((speed) => (
+                <option value={speed} key={speed}>
+                  {speed}x
                 </option>
               ))}
             </select>

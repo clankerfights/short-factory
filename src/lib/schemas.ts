@@ -6,6 +6,7 @@ export const createJobRequestSchema = z.object({
   finalMessageTone: z.string().trim().optional(),
   templateId: z.string().trim().optional(),
   toneHint: z.string().trim().optional(),
+  clipPlaybackSpeed: z.number().min(0.5).max(4).optional(),
 });
 
 export const recordJobRequestSchema = z.object({
@@ -205,6 +206,11 @@ export const editCompositionSchema = z.object({
         .object({
           startFrame: z.number().int().min(0),
           endFrame: z.number().int().min(1),
+        })
+        .optional(),
+      playback: z
+        .object({
+          speed: z.number().min(0.5).max(4),
         })
         .optional(),
       freezes: z

@@ -26,6 +26,21 @@ export type TrimFrameEdit = {
   endFrame: number;
 };
 
+export type PlaybackSpeedEdit = {
+  speed: number;
+};
+
+export type BaseRecordingTiming = {
+  fps: number;
+  recordedDurationFrames: number;
+  clipStartFrame: number;
+  clipEndFrame: number;
+  clipDurationFrames: number;
+  playbackRate: number;
+  method: "play-start" | "backfill-detection" | "none";
+  confidence: "high" | "medium" | "low";
+};
+
 export type ViewportFit = "cover" | "contain" | "fill";
 
 export type LayerTransform = {
@@ -94,6 +109,7 @@ export type ClipCapturePlan = {
   };
   replay: {
     autoplay: boolean;
+    playbackRate: number;
     waitForReadySignal: boolean;
     readinessGlobal: "__CLIP_FACTORY_READY__";
     preferredPlaySelector: string;
@@ -170,6 +186,17 @@ export type ClipRawMaterials = {
   };
   durationSeconds: number;
   players: Array<{ id: string; name: string }>;
+  messages?: Array<{
+    id: number;
+    speaker: string;
+    playerId: string;
+    channel: string;
+    text: string;
+    timeStart: number;
+    timeEnd: number;
+    timestamp: number;
+    highlighted: boolean;
+  }>;
   highlightedChatIds: number[];
   highlightedMessages: Array<{
     id: number;
@@ -321,6 +348,7 @@ export type EditComposition = {
   };
   timelineEdits?: {
     trim?: TrimFrameEdit;
+    playback?: PlaybackSpeedEdit;
     freezes?: FreezeFrameEdit[];
   };
   layers: EditLayer[];

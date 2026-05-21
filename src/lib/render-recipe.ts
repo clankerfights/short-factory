@@ -4,6 +4,7 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import type { FactoryJob } from "./types";
 import { TIKTOK_CANVAS, type EditComposition } from "./edit-model";
+import { ensureBaseRecordingTiming } from "./base-recording-timing";
 
 export type RenderRecipeOptions = {
   job: FactoryJob;
@@ -22,6 +23,7 @@ export async function renderRecipeVariant(options: RenderRecipeOptions): Promise
   }
 
   const baseRecordingPath = path.resolve(options.baseRecordingPath);
+  const baseVideoTiming = await ensureBaseRecordingTiming(options.job, baseRecordingPath);
   await syncSharedAssets(path.dirname(baseRecordingPath));
   const entryPoint = path.join(process.cwd(), "src", "remotion", "index.tsx");
   const serveUrl = await bundle({
@@ -30,6 +32,7 @@ export async function renderRecipeVariant(options: RenderRecipeOptions): Promise
   });
   const inputProps = {
     baseVideoSrc: path.basename(baseRecordingPath),
+    baseVideoTiming,
     variant,
   };
   const composition = await selectComposition({
@@ -63,10 +66,13 @@ export async function renderRawClipVideo(options: {
     1,
     Math.round(options.job.quoteJob.durationSeconds * TIKTOK_CANVAS.fps),
   );
+  const baseRecordingPath = path.resolve(options.baseRecordingPath);
+  const baseVideoTiming = await ensureBaseRecordingTiming(options.job, baseRecordingPath);
+  const cleanDurationFrames = baseVideoTiming.clipDurationFrames || durationFrames;
   const composition: EditComposition = {
     canvas: {
       ...TIKTOK_CANVAS,
-      durationFrames,
+      durationFrames: cleanDurationFrames,
     },
     layers: [
       {
@@ -74,7 +80,7 @@ export async function renderRawClipVideo(options: {
         kind: "video-source",
         name: "Raw clip",
         source: "base-recording",
-        time: { start: 0, duration: durationFrames },
+        time: { start: 0, duration: cleanDurationFrames },
         box: { x: 0, y: 0, width: TIKTOK_CANVAS.width, height: TIKTOK_CANVAS.height },
         fit: "cover",
         zIndex: 0,
@@ -91,7 +97,6 @@ export async function renderRawClipVideo(options: {
     composition,
   };
 
-  const baseRecordingPath = path.resolve(options.baseRecordingPath);
   await syncSharedAssets(path.dirname(baseRecordingPath));
   const entryPoint = path.join(process.cwd(), "src", "remotion", "index.tsx");
   const serveUrl = await bundle({
@@ -100,6 +105,7 @@ export async function renderRawClipVideo(options: {
   });
   const inputProps = {
     baseVideoSrc: path.basename(baseRecordingPath),
+    baseVideoTiming,
     variant: rawVariant,
   };
   const selected = await selectComposition({
@@ -109,7 +115,7 @@ export async function renderRawClipVideo(options: {
   });
   const outputLocation = path.resolve(options.outputPath);
   await renderMedia({
-    composition: { ...selected, durationInFrames: durationFrames },
+    composition: { ...selected, durationInFrames: cleanDurationFrames },
     serveUrl,
     codec: "h264",
     pixelFormat: "yuv420p",
