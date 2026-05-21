@@ -13,7 +13,7 @@ import {
   withTrimEdit,
 } from "../src/lib/composition-utils";
 import { normalizeClipInput } from "../src/lib/clip-url";
-import { clusterHighlightReadsForFreeze } from "../src/lib/default-template1";
+import { planHighlightReadFreezes } from "../src/lib/highlight-freeze-planner";
 import { normalizeClipDetailToQuoteJob } from "../src/lib/normalize-clip";
 import { editCompositionSchema } from "../src/lib/schemas";
 import type { ClipDetailWire } from "../src/lib/types";
@@ -123,26 +123,39 @@ assert.equal(
   12,
 );
 
-const highlightReadClusters = clusterHighlightReadsForFreeze(
-  [
+const highlightFreezePlan = planHighlightReadFreezes({
+  reads: [
     { id: "168", sourceFrame: 336, durationFrames: 443 },
     { id: "169", sourceFrame: 369, durationFrames: 528 },
     { id: "170", sourceFrame: 639, durationFrames: 128 },
     { id: "170-2", sourceFrame: 825, durationFrames: 222 },
     { id: "171", sourceFrame: 936, durationFrames: 463 },
   ],
-  0,
-);
+  sourceDuration: 1500,
+  outputOffsetFrames: 125,
+});
 assert.deepEqual(
-  highlightReadClusters.map((cluster) => ({
-    sourceFrame: cluster.sourceFrame,
-    durationFrames: cluster.durationFrames,
-    reads: cluster.reads.map((read) => read.id),
+  highlightFreezePlan.freezes.map((freeze) => ({
+    id: freeze.id,
+    sourceFrame: freeze.atFrame,
+    durationFrames: freeze.durationFrames,
   })),
   [
-    { sourceFrame: 336, durationFrames: 971, reads: ["168", "169"] },
-    { sourceFrame: 639, durationFrames: 128, reads: ["170"] },
-    { sourceFrame: 825, durationFrames: 685, reads: ["170-2", "171"] },
+    { id: "freeze-highlight-168", sourceFrame: 336, durationFrames: 443 },
+    { id: "freeze-highlight-169", sourceFrame: 369, durationFrames: 528 },
+    { id: "freeze-highlight-170", sourceFrame: 639, durationFrames: 128 },
+    { id: "freeze-highlight-170-2", sourceFrame: 825, durationFrames: 222 },
+    { id: "freeze-highlight-171", sourceFrame: 936, durationFrames: 463 },
+  ],
+);
+assert.deepEqual(
+  highlightFreezePlan.reads.map((read) => ({ id: read.id, outputStartFrame: read.outputStartFrame })),
+  [
+    { id: "168", outputStartFrame: 461 },
+    { id: "169", outputStartFrame: 937 },
+    { id: "170", outputStartFrame: 1735 },
+    { id: "170-2", outputStartFrame: 2049 },
+    { id: "171", outputStartFrame: 2382 },
   ],
 );
 
