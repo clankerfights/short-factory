@@ -629,6 +629,10 @@ code {
   grid-column: 1 / -1;
 }
 
+.ttsPreviewRow {
+  grid-column: 1 / -1;
+}
+
 .ttsInstructions textarea {
   min-height: 170px;
   line-height: 1.38;

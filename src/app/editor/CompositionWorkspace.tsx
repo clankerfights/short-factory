@@ -153,6 +153,8 @@ export function CompositionWorkspace({
   const ttsLayers = composition.layers.filter(
     (layer): layer is TtsLayer => layer.kind === "tts",
   );
+  const setupAudioLayer = setupLayer ? ttsLayerForTextLayer(setupLayer, ttsLayers) : undefined;
+  const quoteAudioLayer = quoteLayer ? ttsLayerForTextLayer(quoteLayer, ttsLayers) : undefined;
   const audioLayers = composition.layers.filter(
     (layer): layer is Extract<EditLayer, { kind: "audio-file" }> =>
       layer.kind === "audio-file",
@@ -754,6 +756,12 @@ export function CompositionWorkspace({
                 onChange={(next) => updateLayer<TextOverlayLayer>(setupLayer.id, () => next)}
                 onGenerateTts={target.kind === "job" ? () => generateTtsForLayer(setupLayer) : undefined}
                 busy={busy}
+                audioSrc={
+                  target.kind === "job"
+                    ? audioPreviewUrl(setupAudioLayer?.src, target.jobId)
+                    : setupAudioLayer?.src
+                }
+                audioLabel="Play setup voice"
               />
             ) : (
               <AddOnlyCard
@@ -775,6 +783,12 @@ export function CompositionWorkspace({
                 onChange={(next) => updateLayer<TextOverlayLayer>(quoteLayer.id, () => next)}
                 onGenerateTts={target.kind === "job" ? () => generateTtsForLayer(quoteLayer) : undefined}
                 busy={busy}
+                audioSrc={
+                  target.kind === "job"
+                    ? audioPreviewUrl(quoteAudioLayer?.src, target.jobId)
+                    : quoteAudioLayer?.src
+                }
+                audioLabel="Play quote voice"
               />
             ) : (
               <AddOnlyCard
@@ -795,6 +809,8 @@ export function CompositionWorkspace({
               onChange={(next) => updateLayer<TextOverlayLayer>(next.id, () => next)}
               onGenerate={target.kind === "job" ? generateTtsForLayer : undefined}
               busy={busy}
+              jobId={target.kind === "job" ? target.jobId : undefined}
+              ttsLayers={ttsLayers}
             />
           </CollapsibleSection>
 
@@ -1071,6 +1087,8 @@ function TextRecipeCard({
   onFocus,
   onGenerateTts,
   busy,
+  audioSrc,
+  audioLabel,
 }: {
   title: string;
   hint: string;
@@ -1079,6 +1097,8 @@ function TextRecipeCard({
   onFocus: () => void;
   onGenerateTts?: () => void;
   busy: string | null;
+  audioSrc?: string | null;
+  audioLabel?: string;
 }) {
   return (
     <article className="recipeCard" onFocus={onFocus}>
@@ -1118,6 +1138,8 @@ function TextRecipeCard({
       <TtsControls
         settings={layer.tts}
         onChange={(tts) => onChange({ ...layer, tts })}
+        audioSrc={audioSrc}
+        audioLabel={audioLabel ?? "Play voice"}
       />
     </article>
   );
@@ -1157,6 +1179,8 @@ function TextLayersCard({
   onChange,
   onGenerate,
   busy,
+  jobId,
+  ttsLayers,
 }: {
   layers: TextOverlayLayer[];
   selectedLayerId: string;
@@ -1165,8 +1189,11 @@ function TextLayersCard({
   onChange: (layer: TextOverlayLayer) => void;
   onGenerate?: (layer: TextOverlayLayer) => void;
   busy: string | null;
+  jobId?: string;
+  ttsLayers: TtsLayer[];
 }) {
   const selected = layers.find((layer) => layer.id === selectedLayerId) ?? layers[0];
+  const selectedAudioLayer = selected ? ttsLayerForTextLayer(selected, ttsLayers) : undefined;
   return (
     <article className="recipeCard">
       <div className="recipeCardTop">
@@ -1243,6 +1270,8 @@ function TextLayersCard({
           <TtsControls
             settings={selected.tts}
             onChange={(tts) => onChange({ ...selected, tts })}
+            audioSrc={jobId ? audioPreviewUrl(selectedAudioLayer?.src, jobId) : selectedAudioLayer?.src}
+            audioLabel="Play text voice"
           />
           {onGenerate ? (
             <button className="secondaryButton" onClick={() => onGenerate(selected)} disabled={busy !== null}>
@@ -1659,15 +1688,9 @@ function TtsVoiceoverCard({
           <TtsLayerControls
             layer={selected}
             onChange={(next) => onChange(clearTtsAudio(next))}
+            audioSrc={jobId ? audioPreviewUrl(selected.src, jobId) : selected.src}
+            audioLabel="Play voiceover"
           />
-          {selected.src ? (
-            <AudioPreviewButton
-              src={jobId ? audioPreviewUrl(selected.src, jobId) : selected.src}
-              label="Play TTS"
-            />
-          ) : (
-            <p className="editorSubtle">Generate audio before rendering if you want this layer to be heard.</p>
-          )}
           {onGenerate ? (
             <button
               className="secondaryButton"
@@ -1818,9 +1841,13 @@ function AdRecipeCard({
 function TtsControls({
   settings,
   onChange,
+  audioSrc,
+  audioLabel = "Play voice",
 }: {
   settings?: TtsSettings;
   onChange: (settings: TtsSettings) => void;
+  audioSrc?: string | null;
+  audioLabel?: string;
 }) {
   const next = {
     voice: settings?.voice ?? "coral",
@@ -1860,6 +1887,9 @@ function TtsControls({
             placeholder="Affect: ...&#10;Tone: ...&#10;Emotion: ...&#10;Pronunciation: ...&#10;Pause: ..."
           />
         </label>
+        <div className="ttsPreviewRow">
+          <AudioPreviewButton src={audioSrc} label={audioLabel} />
+        </div>
       </div>
     </details>
   );
@@ -1868,41 +1898,51 @@ function TtsControls({
 function TtsLayerControls({
   layer,
   onChange,
+  audioSrc,
+  audioLabel = "Play voiceover",
 }: {
   layer: TtsLayer;
   onChange: (layer: TtsLayer) => void;
+  audioSrc?: string | null;
+  audioLabel?: string;
 }) {
   return (
-    <div className="ttsGrid">
-      <label>
-        <span>Voice</span>
-        <select
-          value={layer.voice}
-          onChange={(event) => onChange({ ...layer, voice: event.target.value })}
-        >
-          {OPENAI_VOICES.map((voice) => (
-            <option key={voice} value={voice}>
-              {voice}
-            </option>
-          ))}
-        </select>
-      </label>
-      <NumberInput
-        label="Volume"
-        value={layer.volume}
-        step={0.1}
-        onChange={(volume) => onChange({ ...layer, volume })}
-      />
-      <label className="ttsInstructions">
-        <span>Voice description</span>
-        <textarea
-          className="compactTextarea"
-          value={layer.instructions ?? ""}
-          onChange={(event) => onChange({ ...layer, instructions: event.target.value })}
-          placeholder="Affect: ...&#10;Tone: ...&#10;Emotion: ...&#10;Pronunciation: ...&#10;Pause: ..."
+    <details className="ttsDetails" open>
+      <summary>OpenAI voice settings</summary>
+      <div className="ttsGrid">
+        <label>
+          <span>Voice</span>
+          <select
+            value={layer.voice}
+            onChange={(event) => onChange({ ...layer, voice: event.target.value })}
+          >
+            {OPENAI_VOICES.map((voice) => (
+              <option key={voice} value={voice}>
+                {voice}
+              </option>
+            ))}
+          </select>
+        </label>
+        <NumberInput
+          label="Volume"
+          value={layer.volume}
+          step={0.1}
+          onChange={(volume) => onChange({ ...layer, volume })}
         />
-      </label>
-    </div>
+        <label className="ttsInstructions">
+          <span>Voice description</span>
+          <textarea
+            className="compactTextarea"
+            value={layer.instructions ?? ""}
+            onChange={(event) => onChange({ ...layer, instructions: event.target.value })}
+            placeholder="Affect: ...&#10;Tone: ...&#10;Emotion: ...&#10;Pronunciation: ...&#10;Pause: ..."
+          />
+        </label>
+        <div className="ttsPreviewRow">
+          <AudioPreviewButton src={audioSrc} label={audioLabel} />
+        </div>
+      </div>
+    </details>
   );
 }
 
@@ -2482,6 +2522,24 @@ function audioPreviewUrl(src: string | undefined, jobId: string): string | null 
     return `/api/assets/${src.slice("assets/".length)}`;
   }
   return `/api/jobs/${jobId}/assets/${src}`;
+}
+
+function ttsLayerForTextLayer(
+  textLayer: TextOverlayLayer,
+  ttsLayers: TtsLayer[],
+): TtsLayer | undefined {
+  const preferredIds =
+    textLayer.id === "opening-caption"
+      ? ["tts-default-template1-hook", `tts-${textLayer.id}`]
+      : [`tts-${textLayer.id}`];
+  return (
+    preferredIds.flatMap((id) => ttsLayers.filter((layer) => layer.id === id))[0] ??
+    ttsLayers.find(
+      (layer) =>
+        layer.text === textLayer.text &&
+        Math.abs(layer.time.start - textLayer.time.start) <= 1,
+    )
+  );
 }
 
 function framesToSeconds(frames: number, fps = 30): number {

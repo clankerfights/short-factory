@@ -8,6 +8,7 @@ import {
 } from "../../../../../lib/composition-utils";
 import { jobDirectory, readFactoryJob, saveFactoryJob } from "../../../../../lib/job-store";
 import { ttsRequestSchema } from "../../../../../lib/schemas";
+import { mp3DurationSeconds } from "../../../../../lib/audio-duration";
 import { generateOpenAiSpeech } from "../../../../../lib/tts";
 import { voiceForSpeaker } from "../../../../../lib/voice-registry";
 import type { TtsLayer } from "../../../../../lib/edit-model";
@@ -41,11 +42,14 @@ export async function POST(
     const absolutePath = path.join(jobDirectory(job.id), relativePath);
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, audio);
-
     const composition = compositionForVariant(variant);
     const previous = composition.layers.find(
       (layer): layer is TtsLayer => layer.id === body.layerId && layer.kind === "tts",
     );
+    const measuredDurationSeconds = mp3DurationSeconds(audio);
+    const durationFrames = measuredDurationSeconds
+      ? Math.max(1, Math.ceil(measuredDurationSeconds * composition.canvas.fps))
+      : body.duration ?? previous?.time.duration ?? 120;
     const start = body.start ?? previous?.time.start ?? 0;
     const layer: TtsLayer = {
       id: body.layerId,
@@ -53,7 +57,7 @@ export async function POST(
       name: previous?.name ?? "TTS",
       time: {
         start,
-        duration: body.duration ?? previous?.time.duration ?? 120,
+        duration: durationFrames || previous?.time.duration || 120,
       },
       zIndex: previous?.zIndex ?? 100,
       text: body.text,
