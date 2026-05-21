@@ -85,6 +85,7 @@ export function PreviewLayer({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          fontSize: canvasUnit(layer.style.fontSize, canvas),
           fontWeight: layer.style.weight,
         }}
       >
@@ -98,10 +99,12 @@ export function PreviewLayer({
         style={{
           width: "100%",
           height: "100%",
-          padding: layer.style.background ? "2.2% 2.4%" : undefined,
+          padding: layer.style.background
+            ? `${canvasUnit(24, canvas)} ${canvasUnit(28, canvas)}`
+            : undefined,
           background: layer.style.background,
           color: layer.style.color,
-          fontSize: `${(layer.style.fontSize / canvas.width) * 100}vw`,
+          fontSize: canvasUnit(layer.style.fontSize, canvas),
           fontWeight: layer.style.weight,
           lineHeight: layer.style.lineHeight,
           textTransform: layer.style.textTransform,
@@ -120,6 +123,10 @@ export function PreviewLayer({
     );
   }
   return null;
+}
+
+function canvasUnit(value: number, canvas: EditComposition["canvas"]): string {
+  return `${(value / canvas.width) * 100}cqw`;
 }
 
 function PreviewShape({ layer }: { layer: ShapeLayer }) {

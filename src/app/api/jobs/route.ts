@@ -1,11 +1,23 @@
 import { NextResponse } from "next/server";
 import { fetchClipDetail } from "../../../lib/clankerfights";
-import { createFactoryJob } from "../../../lib/job-store";
+import { createFactoryJob, listFactoryJobs } from "../../../lib/job-store";
 import { normalizeClipDetailToQuoteJob } from "../../../lib/normalize-clip";
 import { generateEditRecipe } from "../../../lib/recipe-generator";
 import { createJobRequestSchema } from "../../../lib/schemas";
 
 export const runtime = "nodejs";
+
+export async function GET() {
+  try {
+    const jobs = await listFactoryJobs();
+    return NextResponse.json({ jobs });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
