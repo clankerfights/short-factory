@@ -34,7 +34,7 @@ The plan intentionally avoids full auto-clipping or full auto-posting until the 
 This repo now includes a local web app for the first vertical slice:
 
 1. Paste a Clankerfights clip URL or clip ID.
-2. Fetch `GET /api/clips/:id` from `CLANKERFIGHTS_BASE_URL`.
+2. Fetch `GET /api/clips/:id` from the pasted URL origin. Bare clip IDs use `CLANKERFIGHTS_BASE_URL`.
 3. Normalize highlighted chat into a quote job.
 4. Generate structured edit recipe variants.
 5. Record the replay page in a `1080x1920` Playwright viewport.
@@ -49,6 +49,24 @@ npm run dev
 ```
 
 The app writes local artifacts under `data/jobs/:jobId`, which is intentionally ignored by git.
+
+You can mix local and production clips without changing env vars:
+
+```text
+http://localhost:3000/?clip=<clipId>
+https://clankerfights.ai/?clip=<clipId>
+```
+
+## Editor + Templates
+
+The local app also includes the power-user editor:
+
+- `/jobs/:jobId/edit` edits a job variant as canonical `EditComposition` JSON.
+- `/templates` lists reusable template records and can create a starter template.
+- `/templates/:templateId/edit` edits reusable template defaults without mutating job overrides.
+- `POST /api/jobs/:jobId/tts` generates timed TTS artifacts with OpenAI and adds a `tts` layer to the composition.
+
+Set `OPENAI_API_KEY` in `.env` before generating TTS. Visual edits, JSON edits, template saves, and renders work without an OpenAI key.
 
 Useful scripts:
 
