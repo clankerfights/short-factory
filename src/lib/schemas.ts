@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const createJobRequestSchema = z.object({
   clipUrl: z.string().min(1, "Paste a clip URL or clip ID."),
+  hookText: z.string().trim().optional(),
+  finalMessageTone: z.string().trim().optional(),
+  templateId: z.string().trim().optional(),
   toneHint: z.string().trim().optional(),
 });
 
@@ -122,6 +125,7 @@ const layerSchema = z.discriminatedUnion("kind", [
     src: z.string().min(1),
     box: boxSchema,
     fit: z.enum(["cover", "contain", "fill"]),
+    flipX: z.boolean().optional(),
     opacity: z.number().optional(),
     transform: z
       .object({
@@ -187,6 +191,9 @@ const layerSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const editCompositionSchema = z.object({
+  templateId: z.string().optional(),
+  templateName: z.string().optional(),
+  templateVersion: z.number().int().positive().optional(),
   canvas: sizeSchema.extend({
     fps: z.number().positive(),
     durationFrames: z.number().int().positive(),

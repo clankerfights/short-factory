@@ -1,8 +1,14 @@
 import { notFound } from "next/navigation";
 import { listJobAssets } from "../../../../lib/asset-store";
 import { compositionForVariant } from "../../../../lib/composition-utils";
-import { readFactoryJob } from "../../../../lib/job-store";
+import { readFactoryJob, saveFactoryJob } from "../../../../lib/job-store";
 import { listTemplates } from "../../../../lib/template-store";
+import {
+  applyAutomaticTemplate,
+  isBuiltInTemplateId,
+  isCurrentAutomaticTemplate,
+  resolveAutomaticTemplateId,
+} from "../../../../lib/template-registry";
 import { CompositionWorkspace } from "../../../editor/CompositionWorkspace";
 
 export const runtime = "nodejs";
@@ -14,13 +20,24 @@ export default async function JobEditorPage({
 }) {
   try {
     const { jobId } = await params;
-    const [job, templates, assets] = await Promise.all([
-      readFactoryJob(jobId),
+    const job = await readFactoryJob(jobId);
+    const variant = job.editRecipe.variants[0];
+    if (!variant) notFound();
+    const selectedTemplateId =
+      variant.templateId ?? job.quoteJob.selectedTemplateId ?? variant.composition?.templateId;
+    const templateId = resolveAutomaticTemplateId(selectedTemplateId);
+    const shouldUseAutomaticTemplate =
+      isBuiltInTemplateId(selectedTemplateId) ||
+      (!selectedTemplateId && !variant.composition) ||
+      isBuiltInTemplateId(variant.composition?.templateId);
+    if (shouldUseAutomaticTemplate && !isCurrentAutomaticTemplate(variant.composition, templateId)) {
+      variant.composition = await applyAutomaticTemplate(job, variant, templateId);
+      await saveFactoryJob(job);
+    }
+    const [templates, assets] = await Promise.all([
       listTemplates(),
       listJobAssets(jobId),
     ]);
-    const variant = job.editRecipe.variants[0];
-    if (!variant) notFound();
 
     return (
       <CompositionWorkspace

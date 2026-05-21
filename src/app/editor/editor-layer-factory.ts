@@ -24,6 +24,7 @@ export function createImageLayer(input: {
     zIndex: 35,
     src: input.src,
     fit: "contain",
+    flipX: false,
   };
 }
 

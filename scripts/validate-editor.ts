@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildNarratorQuoteComposition } from "../src/lib/composition-builder";
 import {
+  ensureUniqueCompositionIds,
   normalizeFreezes,
   outputFrameForSourceFrame,
   rawFrameToSourceFrame,
@@ -12,6 +13,7 @@ import {
   withTrimEdit,
 } from "../src/lib/composition-utils";
 import { normalizeClipInput } from "../src/lib/clip-url";
+import { clusterHighlightReadsForFreeze } from "../src/lib/default-template1";
 import { normalizeClipDetailToQuoteJob } from "../src/lib/normalize-clip";
 import { editCompositionSchema } from "../src/lib/schemas";
 import type { ClipDetailWire } from "../src/lib/types";
@@ -74,6 +76,28 @@ const ordered = sortedLayers([
 assert.equal(ordered[0]?.kind, "video-source");
 assert.equal(ordered[1]?.kind, "tts");
 
+const duplicateIds = ensureUniqueCompositionIds({
+  ...composition,
+  layers: [
+    { ...ttsLayer, id: "duplicate-layer" },
+    { ...ttsLayer, id: "duplicate-layer", name: "Second duplicate" },
+  ],
+  timelineEdits: {
+    freezes: [
+      { id: "duplicate-freeze", atFrame: 10, durationFrames: 5 },
+      { id: "duplicate-freeze", atFrame: 20, durationFrames: 7 },
+    ],
+  },
+});
+assert.deepEqual(
+  duplicateIds.layers.map((layer) => layer.id),
+  ["duplicate-layer", "duplicate-layer-2"],
+);
+assert.deepEqual(
+  duplicateIds.timelineEdits?.freezes?.map((freeze) => freeze.id),
+  ["duplicate-freeze", "duplicate-freeze-2"],
+);
+
 const withFreeze = withFreezeEdits(composition, [
   { id: "freeze-a", atFrame: 30, durationFrames: 45 },
 ]);
@@ -97,6 +121,29 @@ assert.equal(
     100,
   )[0]?.durationFrames,
   12,
+);
+
+const highlightReadClusters = clusterHighlightReadsForFreeze(
+  [
+    { id: "168", sourceFrame: 336, durationFrames: 443 },
+    { id: "169", sourceFrame: 369, durationFrames: 528 },
+    { id: "170", sourceFrame: 639, durationFrames: 128 },
+    { id: "170-2", sourceFrame: 825, durationFrames: 222 },
+    { id: "171", sourceFrame: 936, durationFrames: 463 },
+  ],
+  0,
+);
+assert.deepEqual(
+  highlightReadClusters.map((cluster) => ({
+    sourceFrame: cluster.sourceFrame,
+    durationFrames: cluster.durationFrames,
+    reads: cluster.reads.map((read) => read.id),
+  })),
+  [
+    { sourceFrame: 336, durationFrames: 971, reads: ["168", "169"] },
+    { sourceFrame: 639, durationFrames: 128, reads: ["170"] },
+    { sourceFrame: 825, durationFrames: 685, reads: ["170-2", "171"] },
+  ],
 );
 
 const trimmed = withTrimEdit(composition, { startFrame: 60, endFrame: 210 });

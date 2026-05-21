@@ -161,6 +161,8 @@ export function CompositionWorkspace({
   const trimWindow = trimWindowForComposition(composition);
   const sourceDuration = sourceDurationFrames(composition);
   const freezeEdits = composition.timelineEdits?.freezes ?? [];
+  const videoStartFrame =
+    composition.layers.find((layer) => layer.kind === "video-source")?.time.start ?? 0;
   const activeLayers = useMemo(
     () =>
       sortedLayers.filter(
@@ -184,7 +186,7 @@ export function CompositionWorkspace({
     [composition.layers],
   );
   const previewSourceFrame = sourceFrameForOutputFrame(
-    previewFrame,
+    Math.max(0, previewFrame - videoStartFrame),
     freezeEdits,
     sourceDuration,
   );
@@ -428,7 +430,11 @@ export function CompositionWorkspace({
     if (video) {
       video.currentTime =
         sourceFrameToRawFrame(
-          sourceFrameForOutputFrame(clampedFrame, freezeEdits, sourceDuration),
+          sourceFrameForOutputFrame(
+            Math.max(0, clampedFrame - videoStartFrame),
+            freezeEdits,
+            sourceDuration,
+          ),
           trimWindow,
           rawSourceDuration,
         ) /
@@ -444,7 +450,7 @@ export function CompositionWorkspace({
     setPreviewFrame(
       Math.min(
         composition.canvas.durationFrames - 1,
-        outputFrameForSourceFrame(sourceFrame, freezeEdits, sourceDuration),
+        videoStartFrame + outputFrameForSourceFrame(sourceFrame, freezeEdits, sourceDuration),
       ),
     );
   }
@@ -1386,6 +1392,14 @@ function ImageRecipeCard({
           <TextInput label="Image source" value={layer.src} onChange={(src) => onChange({ ...layer, src })} />
           <TimingFields layer={layer} onChange={onChange} />
           <BoxFields layer={layer} onChange={onChange} />
+          <label className="inlineCheck">
+            <input
+              type="checkbox"
+              checked={Boolean(layer.flipX)}
+              onChange={(event) => onChange({ ...layer, flipX: event.target.checked })}
+            />
+            <span>Flip horizontally</span>
+          </label>
         </>
       ) : (
         <p className="editorSubtle">Add an image by path, or use an image asset from this job.</p>
@@ -1962,6 +1976,16 @@ function Inspector({
             value={layer.text}
             onChange={(event) => onChange({ text: event.target.value } as Partial<EditLayer>)}
           />
+        </label>
+      ) : null}
+      {layer.kind === "image" ? (
+        <label className="inlineCheck">
+          <input
+            type="checkbox"
+            checked={Boolean(layer.flipX)}
+            onChange={(event) => onChange({ flipX: event.target.checked } as Partial<EditLayer>)}
+          />
+          <span>Flip horizontally</span>
         </label>
       ) : null}
       {onGenerateTts ? (

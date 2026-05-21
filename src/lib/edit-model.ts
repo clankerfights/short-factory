@@ -234,6 +234,7 @@ export type ImageLayer = BaseEditLayer & {
   src: string;
   box: Box;
   fit: ViewportFit;
+  flipX?: boolean;
   opacity?: number;
   transform?: LayerTransform;
 };
@@ -310,6 +311,9 @@ export type EditLayer =
   | CtaLayer;
 
 export type EditComposition = {
+  templateId?: string;
+  templateName?: string;
+  templateVersion?: number;
   canvas: Size & {
     fps: number;
     durationFrames: number;

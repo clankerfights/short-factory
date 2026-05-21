@@ -1,5 +1,4 @@
 import type { EditRecipe, EditRecipeVariant, QuoteJob } from "./types";
-import { buildNarratorQuoteComposition } from "./composition-builder";
 
 const CTA = "Real AI matches at clankerfights.ai";
 
@@ -8,13 +7,17 @@ export function generateEditRecipe(job: QuoteJob): EditRecipe {
   const punchlinePhrase = pickPunchlinePhrase(quoteText);
   const style = inferStyle(job.toneHint, quoteText);
   const speakerExpression = expressionForStyle(style);
+  const setupLines = job.hookText
+    ? [job.hookText]
+    : setupLinesForStyle(style, job.speaker, job.game);
 
   return {
     sourceClipId: job.clipId,
-    variants: setupLinesForStyle(style, job.speaker, job.game).map((setupLine, index) => {
+    variants: setupLines.map((setupLine, index) => {
       const draft = {
         variantId: `v${index + 1}`,
         template: "narrator_quote_punchline" as const,
+        templateId: job.selectedTemplateId,
         setupLine,
         openingCaption: openingCaptionForStyle(style, job.game),
         speaker: job.speaker,
@@ -28,7 +31,6 @@ export function generateEditRecipe(job: QuoteJob): EditRecipe {
 
       return {
         ...draft,
-        composition: buildNarratorQuoteComposition(draft),
       };
     }),
   };

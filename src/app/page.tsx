@@ -1,342 +1,180 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import type { FactoryJob } from "../lib/types";
 
-const toneHints = ["", "too_deep", "deadpan", "roast", "matrix", "iconic"];
+const DEFAULT_TEMPLATE_ID = "default-template1";
 
 type ApiJobResponse = {
   job?: FactoryJob;
   error?: string;
 };
 
-type ApiJobsResponse = {
-  jobs?: FactoryJob[];
+type TemplateOption = {
+  id: string;
+  name: string;
+  description?: string;
+  version?: number;
+};
+
+type ApiTemplatesResponse = {
+  builtInTemplates?: TemplateOption[];
   error?: string;
 };
 
+const fallbackTemplates: TemplateOption[] = [
+  {
+    id: DEFAULT_TEMPLATE_ID,
+    name: "Default Template1",
+    description: "Hook intro, TTS, clustered highlight freezes, bot faces, and outro.",
+    version: 2,
+  },
+];
+
 export default function Home() {
   const [clipUrl, setClipUrl] = useState("");
-  const [toneHint, setToneHint] = useState("");
-  const [resumeJobId, setResumeJobId] = useState("");
-  const [recentJobs, setRecentJobs] = useState<FactoryJob[]>([]);
-  const [job, setJob] = useState<FactoryJob | null>(null);
+  const [hookText, setHookText] = useState("");
+  const [finalMessageTone, setFinalMessageTone] = useState("");
+  const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
+  const [templates, setTemplates] = useState<TemplateOption[]>(fallbackTemplates);
+  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"ingest" | "record" | "raw-render" | "render" | "open-folder" | "load" | null>(null);
+  const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const selectedVariant = job?.editRecipe.variants[0];
-  const quoteText = useMemo(
-    () => job?.quoteJob.highlightedMessages.map((message) => message.text).join(" "),
-    [job],
-  );
 
   useEffect(() => {
     setHydrated(true);
-    void refreshRecentJobs();
+    void loadTemplates();
   }, []);
 
-  async function refreshRecentJobs() {
-    const response = await fetch("/api/jobs");
-    const payload = (await response.json()) as ApiJobsResponse;
-    if (response.ok && payload.jobs) {
-      setRecentJobs(payload.jobs);
+  async function loadTemplates() {
+    const response = await fetch("/api/templates");
+    const payload = (await response.json()) as ApiTemplatesResponse;
+    if (response.ok && payload.builtInTemplates?.length) {
+      setTemplates(payload.builtInTemplates);
+      if (!payload.builtInTemplates.some((template) => template.id === templateId)) {
+        setTemplateId(payload.builtInTemplates[0]?.id ?? DEFAULT_TEMPLATE_ID);
+      }
     }
   }
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setBusy("ingest");
+    setBusy(true);
     setError(null);
-    setJob(null);
 
-    const response = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ clipUrl, toneHint: toneHint || undefined }),
-    });
-    const payload = (await response.json()) as ApiJobResponse;
-    setBusy(null);
+    try {
+      setStatus("Creating job and final-line voice direction...");
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clipUrl,
+          hookText,
+          finalMessageTone,
+          templateId,
+        }),
+      });
+      const payload = (await response.json()) as ApiJobResponse;
+      if (!response.ok || !payload.job) {
+        throw new Error(payload.error ?? "Job creation failed.");
+      }
 
-    if (!response.ok || !payload.job) {
-      setError(payload.error ?? "Job creation failed.");
-      return;
+      setStatus("Recording the clip in the phone-shaped viewport...");
+      const recordedJob = await runPipelineStep(payload.job, "record");
+
+      setStatus("Rendering the raw MP4...");
+      const renderedJob = await runPipelineStep(recordedJob, "raw-render");
+
+      setStatus("Opening the editor with the selected template...");
+      window.location.assign(`/jobs/${renderedJob.id}/edit`);
+    } catch (error) {
+      setBusy(false);
+      setStatus(null);
+      setError(error instanceof Error ? error.message : "Clip generation failed.");
     }
-
-    setJob(payload.job);
-    await refreshRecentJobs();
-    await runInitialRawPipeline(payload.job);
   }
 
-  async function loadJob(jobId = resumeJobId) {
-    const normalizedJobId = jobId.trim();
-    if (!normalizedJobId) return;
-    setBusy("load");
-    setError(null);
-
-    const response = await fetch(`/api/jobs/${normalizedJobId}`);
-    const payload = (await response.json()) as ApiJobResponse;
-    setBusy(null);
-
-    if (!response.ok || !payload.job) {
-      setError(payload.error ?? "Could not load that job.");
-      return;
-    }
-
-    setJob(payload.job);
-    setResumeJobId(payload.job.id);
-  }
-
-  async function runInitialRawPipeline(createdJob: FactoryJob) {
-    const recorded = await runStep("record", createdJob);
-    if (!recorded) return;
-    await runStep("raw-render", recorded);
-  }
-
-  async function runStep(step: "record" | "raw-render" | "render", activeJob = job) {
-    if (!activeJob) return null;
-    setBusy(step);
-    setError(null);
-
+  async function runPipelineStep(
+    activeJob: FactoryJob,
+    step: "record" | "raw-render",
+  ): Promise<FactoryJob> {
     const response = await fetch(`/api/jobs/${activeJob.id}/${step}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: step === "render" ? JSON.stringify({ variantId: selectedVariant?.variantId }) : "{}",
+      body: "{}",
     });
     const payload = (await response.json()) as ApiJobResponse;
-    setBusy(null);
-
     if (!response.ok || !payload.job) {
-      setError(payload.error ?? `${step} failed.`);
-      if (payload.job) setJob(payload.job);
-      return null;
+      throw new Error(payload.error ?? `${step} failed.`);
     }
 
-    setJob(payload.job);
-    await refreshRecentJobs();
     return payload.job;
   }
 
-  async function openRenderedFolder(activeJob = job) {
-    if (!activeJob) return;
-    setBusy("open-folder");
-    setError(null);
-
-    const response = await fetch(`/api/jobs/${activeJob.id}/open-folder`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ artifact: "rendered" }),
-    });
-    const payload = (await response.json()) as { error?: string };
-    setBusy(null);
-
-    if (!response.ok) {
-      setError(payload.error ?? "Could not open the MP4 folder.");
-    }
-  }
+  const disabled =
+    hydrated &&
+    (busy || !clipUrl.trim() || !hookText.trim() || !finalMessageTone.trim());
 
   return (
-    <main>
-      <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Clip to TikTok</p>
-            <h1>Make a Clankerfights short</h1>
-          </div>
-          <div className="statusPills">
-            <a href="/templates">Templates</a>
-            <span>Paste clip</span>
-            <span>Edit overlays</span>
-            <span>Render MP4</span>
-          </div>
+    <main className="factoryHome">
+      <section className="launchPanel">
+        <header className="launchHeader">
+          <p className="eyebrow">Clankerfights TikTok Factory</p>
+          <h1>Create a short</h1>
         </header>
 
-        <form className="controlBand" onSubmit={createJob}>
-          <label className="urlField">
+        <form className="launchForm" onSubmit={createJob}>
+          <label>
             <span>Clip URL or ID</span>
             <input
               value={clipUrl}
               onChange={(event) => setClipUrl(event.target.value)}
-              placeholder="https://clankerfights.ai/clip/..."
+              placeholder="https://clankerfights.ai/?clip=..."
+              autoComplete="off"
             />
           </label>
 
-          <label className="toneField">
-            <span>Tone</span>
-            <select value={toneHint} onChange={(event) => setToneHint(event.target.value)}>
-              {toneHints.map((hint) => (
-                <option value={hint} key={hint || "auto"}>
-                  {hint || "auto"}
+          <label>
+            <span>Hook text</span>
+            <textarea
+              value={hookText}
+              onChange={(event) => setHookText(event.target.value)}
+              placeholder="2026 AI is getting unhinged"
+              rows={3}
+            />
+          </label>
+
+          <label>
+            <span>Tone for final highlighted chat</span>
+            <textarea
+              value={finalMessageTone}
+              onChange={(event) => setFinalMessageTone(event.target.value)}
+              placeholder="Deep, commanding, slightly dramatic, with a pause before the last sentence."
+              rows={4}
+            />
+          </label>
+
+          <label>
+            <span>Template</span>
+            <select value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+              {templates.map((template) => (
+                <option value={template.id} key={template.id}>
+                  {template.name}
+                  {template.version ? ` v${template.version}` : ""}
                 </option>
               ))}
             </select>
           </label>
 
-          <button
-            className="primaryButton"
-            disabled={hydrated && (busy !== null || !clipUrl.trim())}
-          >
-            {busy === "ingest" ? "Fetching..." : "Create raw MP4"}
+          <button className="primaryButton launchButton" disabled={disabled}>
+            {busy ? "Generating..." : "Generate MP4 and open editor"}
           </button>
         </form>
 
-        <section className="resumePanel">
-          <form className="resumeBand" onSubmit={(event) => {
-            event.preventDefault();
-            void loadJob();
-          }}>
-            <label>
-              <span>Resume job ID</span>
-              <input
-                value={resumeJobId}
-                onChange={(event) => setResumeJobId(event.target.value)}
-                placeholder="03bc99a5-b83c-48e7-b442-5072db594c69"
-              />
-            </label>
-            <button className="secondaryButton" disabled={busy !== null || !resumeJobId.trim()}>
-              {busy === "load" ? "Loading..." : "Load job"}
-            </button>
-          </form>
-
-          {recentJobs.length > 0 ? (
-            <div className="recentJobs">
-              {recentJobs.map((recentJob) => (
-                <button
-                  className={`recentJob ${job?.id === recentJob.id ? "selected" : ""}`}
-                  key={recentJob.id}
-                  onClick={() => loadJob(recentJob.id)}
-                  disabled={busy !== null}
-                >
-                  <span>{recentJob.quoteJob.speaker}</span>
-                  <strong>{recentJob.quoteJob.game}</strong>
-                  <small>{recentJob.id.slice(0, 8)} / {recentJob.artifacts.rawVideoPath ? "raw ready" : "needs raw"}</small>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </section>
-
+        {status ? <div className="pipelineStatus">{status}</div> : null}
         {error ? <div className="errorLine">{error}</div> : null}
-
-        {job ? (
-          <div className="jobGrid">
-            <section className="panel quotePanel">
-              <div className="sectionHeader">
-                <div>
-                  <p className="eyebrow">Clip</p>
-                  <h2>{job.quoteJob.speaker}</h2>
-                </div>
-                <span className="mono">{job.quoteJob.game}</span>
-              </div>
-
-              <blockquote>{quoteText}</blockquote>
-
-              <dl className="details">
-                <div>
-                  <dt>Clip ID</dt>
-                  <dd>{job.quoteJob.clipId}</dd>
-                </div>
-                <div>
-                  <dt>Duration</dt>
-                  <dd>{job.quoteJob.durationSeconds}s</dd>
-                </div>
-                <div>
-                  <dt>Highlights</dt>
-                  <dd>{job.quoteJob.highlightedChatIds.join(", ")}</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="panel pipelinePanel">
-              <div className="sectionHeader">
-                <div>
-                  <p className="eyebrow">Next steps</p>
-                  <h2>Record, edit, render</h2>
-                </div>
-                <span className={`state ${job.artifacts.rawVideoPath ? "complete" : "pending"}`}>
-                  {job.artifacts.rawVideoPath ? "raw ready" : busy ?? "pending"}
-                </span>
-              </div>
-
-              <div className="actions">
-                <a
-                  className="secondaryButton linkButton"
-                  href={`/jobs/${job.id}/edit`}
-                  aria-disabled={!job.artifacts.rawVideoPath}
-                >
-                  Edit overlays
-                </a>
-                <a
-                  className="secondaryButton linkButton"
-                  href="/templates"
-                  aria-disabled={!job.artifacts.rawVideoPath}
-                >
-                  Choose template
-                </a>
-                <button
-                  className="secondaryButton"
-                  onClick={() => runStep("record")}
-                  disabled={busy !== null}
-                >
-                  {busy === "record" ? "Recording..." : "Record 9:16"}
-                </button>
-                <button
-                  className="secondaryButton"
-                  onClick={() => runStep("raw-render")}
-                  disabled={busy !== null || !job.artifacts.baseRecordingPath}
-                >
-                  {busy === "raw-render" ? "Rendering raw..." : "Render raw MP4"}
-                </button>
-                <button
-                  className="primaryButton"
-                  onClick={() => runStep("render")}
-                  disabled={busy !== null || !job.artifacts.baseRecordingPath}
-                >
-                  {busy === "render" ? "Rendering..." : "Render v1"}
-                </button>
-                {job.artifacts.renderedVideoPath ? (
-                  <button
-                    className="secondaryButton"
-                    onClick={() => openRenderedFolder()}
-                    disabled={busy !== null}
-                  >
-                    {busy === "open-folder" ? "Opening..." : "Open folder"}
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="artifactList">
-                <Artifact label="Base" value={job.artifacts.baseRecordingPath} />
-                <Artifact label="Raw MP4" value={job.artifacts.rawVideoPath} />
-                <Artifact label="MP4" value={job.artifacts.renderedVideoPath} />
-                <Artifact label="Job" value={`data/jobs/${job.id}/job.json`} />
-              </div>
-            </section>
-
-            <section className="variants">
-              {job.editRecipe.variants.map((variant) => (
-                <article className="variantCard" key={variant.variantId}>
-                  <div className="variantTop">
-                    <span>{variant.variantId}</span>
-                    <span>{variant.captionStyle}</span>
-                  </div>
-                  <h3>{variant.openingCaption}</h3>
-                  <p>{variant.setupLine}</p>
-                  <div className="punchline">{variant.punchlinePhrase}</div>
-                </article>
-              ))}
-            </section>
-          </div>
-        ) : null}
       </section>
     </main>
-  );
-}
-
-function Artifact({ label, value }: { label: string; value?: string }) {
-  return (
-    <div className="artifact">
-      <span>{label}</span>
-      <code>{value ?? "pending"}</code>
-    </div>
   );
 }

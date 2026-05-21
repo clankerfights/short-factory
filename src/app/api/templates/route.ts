@@ -3,12 +3,16 @@ import {
   createTemplateRequestSchema,
 } from "../../../lib/schemas";
 import { createTemplate, listTemplates } from "../../../lib/template-store";
+import { listBuiltInTemplates } from "../../../lib/template-registry";
 
 export const runtime = "nodejs";
 
 export async function GET() {
   const templates = await listTemplates();
-  return NextResponse.json({ templates });
+  return NextResponse.json({
+    templates,
+    builtInTemplates: listBuiltInTemplates(),
+  });
 }
 
 export async function POST(request: Request) {
