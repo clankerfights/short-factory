@@ -2,6 +2,7 @@ import type {
   EditComposition,
   EditLayer,
   FreezeFrameEdit,
+  PlaybackSpeedEdit,
   TrimFrameEdit,
 } from "./edit-model";
 import { buildNarratorQuoteComposition } from "./composition-builder";
@@ -84,6 +85,32 @@ export function sourceDurationForTimelineEdits(
   return trim.endFrame - trim.startFrame;
 }
 
+export function outputDurationForTimelineEdits(
+  rawDurationFrames: number,
+  timelineEdits?: EditComposition["timelineEdits"],
+): number {
+  const sourceDuration = sourceDurationForTimelineEdits(rawDurationFrames, timelineEdits);
+  const freezes = normalizeFreezes(timelineEdits?.freezes, sourceDuration);
+  const speed = normalizePlaybackSpeed(timelineEdits?.playback);
+  let outputDuration = 0;
+  let sourceCursor = 0;
+
+  for (const freeze of freezes) {
+    outputDuration += sourceFramesToOutputFrames(
+      Math.max(0, freeze.atFrame - sourceCursor + 1),
+      speed,
+    );
+    outputDuration += freeze.durationFrames;
+    sourceCursor = Math.min(sourceDuration, freeze.atFrame + 1);
+  }
+
+  outputDuration += sourceFramesToOutputFrames(
+    Math.max(0, sourceDuration - sourceCursor),
+    speed,
+  );
+  return Math.max(1, outputDuration);
+}
+
 export function trimWindowForComposition(composition: EditComposition): TrimFrameEdit {
   return normalizeTrim(composition.timelineEdits?.trim, rawSourceDurationFrames(composition));
 }
@@ -104,15 +131,21 @@ export function sourceFrameForOutputFrame(
   outputFrame: number,
   freezes: FreezeFrameEdit[] | undefined,
   sourceDuration: number,
+  playback?: PlaybackSpeedEdit,
 ): number {
   const normalized = normalizeFreezes(freezes, sourceDuration);
+  const speed = normalizePlaybackSpeed(playback);
   let outputCursor = 0;
   let sourceCursor = 0;
 
   for (const freeze of normalized) {
-    const normalDuration = Math.max(0, freeze.atFrame - sourceCursor + 1);
+    const sourceFrames = Math.max(0, freeze.atFrame - sourceCursor + 1);
+    const normalDuration = sourceFramesToOutputFrames(sourceFrames, speed);
     if (outputFrame < outputCursor + normalDuration) {
-      return clampFrame(sourceCursor + (outputFrame - outputCursor), sourceDuration);
+      return clampFrame(
+        sourceCursor + Math.floor((outputFrame - outputCursor) * speed),
+        sourceDuration,
+      );
     }
 
     outputCursor += normalDuration;
@@ -124,22 +157,43 @@ export function sourceFrameForOutputFrame(
     sourceCursor = Math.min(sourceDuration, freeze.atFrame + 1);
   }
 
-  return clampFrame(sourceCursor + (outputFrame - outputCursor), sourceDuration);
+  return clampFrame(
+    sourceCursor + Math.floor((outputFrame - outputCursor) * speed),
+    sourceDuration,
+  );
 }
 
 export function outputFrameForSourceFrame(
   sourceFrame: number,
   freezes: FreezeFrameEdit[] | undefined,
   sourceDuration: number,
+  playback?: PlaybackSpeedEdit,
 ): number {
   const normalized = normalizeFreezes(freezes, sourceDuration);
-  let extraFrames = 0;
+  const speed = normalizePlaybackSpeed(playback);
+  const clampedSourceFrame = clampFrame(sourceFrame, sourceDuration);
+  let outputCursor = 0;
+  let sourceCursor = 0;
+
   for (const freeze of normalized) {
-    if (sourceFrame > freeze.atFrame) {
-      extraFrames += freeze.durationFrames;
+    if (clampedSourceFrame <= freeze.atFrame) {
+      return (
+        outputCursor +
+        Math.floor(Math.max(0, clampedSourceFrame - sourceCursor) / speed)
+      );
     }
+    outputCursor += sourceFramesToOutputFrames(
+      Math.max(0, freeze.atFrame - sourceCursor + 1),
+      speed,
+    );
+    outputCursor += freeze.durationFrames;
+    sourceCursor = Math.min(sourceDuration, freeze.atFrame + 1);
   }
-  return Math.max(0, sourceFrame + extraFrames);
+
+  return (
+    outputCursor +
+    Math.floor(Math.max(0, clampedSourceFrame - sourceCursor) / speed)
+  );
 }
 
 export function sourceFrameToRawFrame(
@@ -233,18 +287,33 @@ export function normalizeTrim(
   return { startFrame, endFrame };
 }
 
+export function normalizePlaybackSpeed(playback: PlaybackSpeedEdit | undefined): number {
+  const speed = playback?.speed;
+  if (speed === undefined || !Number.isFinite(speed)) return 1;
+  return Math.max(0.5, Math.min(4, speed));
+}
+
+export function sourceFramesToOutputFrames(
+  sourceFrameCount: number,
+  playbackSpeed: number,
+): number {
+  const frames = Math.max(0, Math.round(sourceFrameCount));
+  if (frames === 0) return 0;
+  return Math.max(1, Math.ceil(frames / normalizePlaybackSpeed({ speed: playbackSpeed })));
+}
+
 function withTimelineDuration(composition: EditComposition): EditComposition {
-  const sourceDuration = sourceDurationFrames(composition);
   const baseLayer = composition.layers.find((layer) => layer.kind === "video-source");
   const normalizedFreezes = normalizeFreezes(
     composition.timelineEdits?.freezes,
-    sourceDuration,
+    sourceDurationFrames(composition),
   );
-  const freezeDuration = normalizedFreezes.reduce(
-    (total, freeze) => total + freeze.durationFrames,
-    0,
-  );
-  const videoEnd = (baseLayer?.time.start ?? 0) + sourceDuration + freezeDuration;
+  const videoEnd =
+    (baseLayer?.time.start ?? 0) +
+    outputDurationForTimelineEdits(rawSourceDurationFrames(composition), {
+      ...composition.timelineEdits,
+      freezes: normalizedFreezes,
+    });
   const layerEnd = composition.layers.reduce(
     (end, layer) => Math.max(end, layer.time.start + layer.time.duration),
     1,

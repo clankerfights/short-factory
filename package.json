@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "validate:editor": "tsx scripts/validate-editor.ts",
-    "check": "npm run typecheck && npm run validate:editor",
+    "validate:source-timeline-render": "tsx scripts/validate-source-timeline-render.ts",
+    "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render",
     "record:clip": "tsx scripts/record-clip.ts",
     "render:raw": "tsx scripts/render-raw.ts",
     "render:recipe": "tsx scripts/render-recipe.ts"

@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       toneHint: body.toneHint ?? body.finalMessageTone,
       finalMessageTone: body.finalMessageTone,
       selectedTemplateId,
+      clipPlaybackSpeed: body.clipPlaybackSpeed ?? 2,
     });
     const finalMessage =
       provisionalQuoteJob.highlightedMessages[

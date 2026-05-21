@@ -5,6 +5,7 @@ import type { RemotionFactoryProps } from "./types";
 
 const defaultProps: RemotionFactoryProps = {
   baseVideoSrc: "",
+  baseVideoTiming: undefined,
   variant: {
     variantId: "v1",
     template: "narrator_quote_punchline",

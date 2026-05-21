@@ -1,4 +1,4 @@
-import type { FreezeFrameEdit } from "./edit-model";
+import type { FreezeFrameEdit, PlaybackSpeedEdit } from "./edit-model";
 import { outputFrameForSourceFrame } from "./composition-utils";
 
 export type HighlightReadTiming = {
@@ -21,6 +21,7 @@ export function planHighlightReadFreezes(args: {
   reads: HighlightReadTiming[];
   sourceDuration: number;
   outputOffsetFrames: number;
+  playback?: PlaybackSpeedEdit;
 }): HighlightFreezePlan {
   const sortedReads = [...args.reads]
     .filter((read) => read.durationFrames > 0)
@@ -45,7 +46,8 @@ export function planHighlightReadFreezes(args: {
 
     const freezeId = `freeze-highlight-${freezeGroupId(sameFrameReads)}`;
     const freezeStart =
-      args.outputOffsetFrames + outputFrameForSourceFrame(sourceFrame, freezes, args.sourceDuration);
+      args.outputOffsetFrames +
+      outputFrameForSourceFrame(sourceFrame, freezes, args.sourceDuration, args.playback);
     let readOffset = 0;
 
     for (const read of sameFrameReads) {

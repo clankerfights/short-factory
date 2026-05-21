@@ -191,6 +191,7 @@ export function CompositionWorkspace({
     Math.max(0, previewFrame - videoStartFrame),
     freezeEdits,
     sourceDuration,
+    composition.timelineEdits?.playback,
   );
   const previewRawFrame = sourceFrameToRawFrame(
     previewSourceFrame,
@@ -436,6 +437,7 @@ export function CompositionWorkspace({
             Math.max(0, clampedFrame - videoStartFrame),
             freezeEdits,
             sourceDuration,
+            composition.timelineEdits?.playback,
           ),
           trimWindow,
           rawSourceDuration,
@@ -452,7 +454,13 @@ export function CompositionWorkspace({
     setPreviewFrame(
       Math.min(
         composition.canvas.durationFrames - 1,
-        videoStartFrame + outputFrameForSourceFrame(sourceFrame, freezeEdits, sourceDuration),
+        videoStartFrame +
+          outputFrameForSourceFrame(
+            sourceFrame,
+            freezeEdits,
+            sourceDuration,
+            composition.timelineEdits?.playback,
+          ),
       ),
     );
   }

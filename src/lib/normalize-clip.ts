@@ -1,6 +1,7 @@
 import type {
   ClipDetailWire,
   ClipPlayerWire,
+  ClipChatMessage,
   ClipSnapshot,
   ClipSnapshotEvent,
   HighlightedMessage,
@@ -23,6 +24,7 @@ export function normalizeClipDetailToQuoteJob(args: {
   finalMessageTone?: string;
   finalMessageVoiceInstructions?: string;
   selectedTemplateId?: string;
+  clipPlaybackSpeed?: number;
 }): QuoteJob {
   const {
     detail,
@@ -32,6 +34,7 @@ export function normalizeClipDetailToQuoteJob(args: {
     finalMessageTone,
     finalMessageVoiceInstructions,
     selectedTemplateId,
+    clipPlaybackSpeed,
   } = args;
   const snapshot = detail.clip.snapshot;
   assertUsableSnapshot(snapshot);
@@ -49,17 +52,19 @@ export function normalizeClipDetailToQuoteJob(args: {
     windowEndTimestamp,
   });
   const highlightedIds = new Set(detail.clip.highlightedChatIds.map(Number));
-  const highlightedMessages = messages
-    .filter((message) => highlightedIds.has(message.id))
-    .map((message) =>
-      toHighlightedMessage({
+  const clipMessages = messages.map((message) =>
+    toClipChatMessage({
         message,
         snapshot,
         players: detail.match.players,
         windowStartTimestamp,
         clipEndSeconds: Math.max(1, (windowEndTimestamp - windowStartTimestamp) / 1000),
+        highlighted: highlightedIds.has(message.id),
       }),
-    );
+  );
+  const highlightedMessages = clipMessages
+    .filter((message) => message.highlighted)
+    .map(({ highlighted: _highlighted, ...message }) => message);
 
   if (highlightedMessages.length === 0) {
     throw new Error(
@@ -76,6 +81,7 @@ export function normalizeClipDetailToQuoteJob(args: {
     trimStartMs,
     trimEndMs,
     durationSeconds,
+    messages: clipMessages,
     highlightedChatIds: detail.clip.highlightedChatIds,
     highlightedMessages,
     players: detail.match.players,
@@ -93,9 +99,11 @@ export function normalizeClipDetailToQuoteJob(args: {
     ...(finalMessageTone ? { finalMessageTone } : {}),
     ...(finalMessageVoiceInstructions ? { finalMessageVoiceInstructions } : {}),
     ...(selectedTemplateId ? { selectedTemplateId } : {}),
+    ...(clipPlaybackSpeed ? { clipPlaybackSpeed } : {}),
     trimStartMs,
     trimEndMs,
     durationSeconds,
+    messages: clipMessages,
     highlightedChatIds: detail.clip.highlightedChatIds,
     highlightedMessages,
     players: detail.match.players,
@@ -110,6 +118,7 @@ function createClipRawMaterials(args: {
   trimStartMs: number;
   trimEndMs: number;
   durationSeconds: number;
+  messages: ClipChatMessage[];
   highlightedChatIds: number[];
   highlightedMessages: HighlightedMessage[];
   players: ClipPlayerWire[];
@@ -125,6 +134,7 @@ function createClipRawMaterials(args: {
       end: args.trimEndMs,
     },
     durationSeconds: args.durationSeconds,
+    messages: args.messages,
     highlightedChatIds: args.highlightedChatIds,
     highlightedMessages: args.highlightedMessages,
     players: args.players,
@@ -206,13 +216,14 @@ function extractReplayChat(
   });
 }
 
-function toHighlightedMessage(args: {
+function toClipChatMessage(args: {
   message: ReturnType<typeof extractReplayChat>[number];
   snapshot: ClipSnapshot;
   players: { id: string; name: string }[];
   windowStartTimestamp: number;
   clipEndSeconds: number;
-}): HighlightedMessage {
+  highlighted: boolean;
+}): ClipChatMessage {
   const { message, snapshot, players, windowStartTimestamp, clipEndSeconds } = args;
   const timeStart = roundToTenth((message.timestamp - windowStartTimestamp) / 1000);
   const estimatedReadSeconds = Math.max(1.6, Math.min(7, message.text.length / 18));
@@ -226,6 +237,7 @@ function toHighlightedMessage(args: {
     timeStart,
     timeEnd: roundToTenth(Math.min(clipEndSeconds, timeStart + estimatedReadSeconds)),
     timestamp: message.timestamp,
+    highlighted: args.highlighted,
   };
 }
 

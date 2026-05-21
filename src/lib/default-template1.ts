@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type {
+  ClipFactoryPacket,
   EditComposition,
   EditLayer,
   TtsLayer,
@@ -9,6 +10,7 @@ import type {
 import { TIKTOK_CANVAS } from "./edit-model";
 import { mp3DurationSeconds } from "./audio-duration";
 import { botFaceForSpeaker } from "./bot-assets";
+import { outputDurationForTimelineEdits } from "./composition-utils";
 import { planHighlightReadFreezes } from "./highlight-freeze-planner";
 import { jobDirectory } from "./job-store";
 import { generateOpenAiSpeech } from "./tts";
@@ -17,9 +19,13 @@ import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
 export const DEFAULT_TEMPLATE1_NAME = "Default Template1";
-export const DEFAULT_TEMPLATE1_VERSION = 3;
+export const DEFAULT_TEMPLATE1_VERSION = 6;
 
-const OUTRO_FRAMES = TIKTOK_CANVAS.fps;
+const DEFAULT_TEMPLATE1_TIMING = {
+  outroFrames: TIKTOK_CANVAS.fps,
+  highlightVisibilitySettleFrames: Math.round(TIKTOK_CANVAS.fps * 0.65),
+  gameplaySpeed: 2,
+} as const;
 
 export async function applyDefaultTemplate1(
   job: FactoryJob,
@@ -30,7 +36,7 @@ export async function applyDefaultTemplate1(
   }
 
   const fps = TIKTOK_CANVAS.fps;
-  const sourceDuration = Math.max(1, Math.round(job.quoteJob.durationSeconds * fps));
+  const rawSourceDuration = Math.max(1, Math.round(job.quoteJob.durationSeconds * fps));
   const speaker = job.quoteJob.speaker || variant.speaker;
   const hookText = variant.setupLine || variant.openingCaption;
   const introSpeech = await createTtsLayer({
@@ -46,6 +52,19 @@ export async function applyDefaultTemplate1(
   const highlighted = [...job.quoteJob.highlightedMessages].sort(
     (a, b) => a.timeStart - b.timeStart,
   );
+  const allChatMessages = await chatMessagesForTemplate(job);
+  const firstChatFrame =
+    allChatMessages[0] !== undefined
+      ? chatVisibleSourceFrame(allChatMessages[0], fps, rawSourceDuration)
+      : 0;
+  const highlightedFrames = highlighted.map((message) =>
+    chatVisibleSourceFrame(message, fps, rawSourceDuration),
+  );
+  const gameplayStartFrame = firstChatFrame;
+  const gameplaySourceDuration = rawSourceDuration - gameplayStartFrame;
+  const playback = {
+    speed: job.quoteJob.clipPlaybackSpeed ?? DEFAULT_TEMPLATE1_TIMING.gameplaySpeed,
+  };
   const speechLayers: TtsLayer[] = [];
   const faceLayers: EditLayer[] = [];
   const highlightIds = new Map<string, number>();
@@ -54,7 +73,7 @@ export async function applyDefaultTemplate1(
   for (let index = 0; index < highlighted.length; index += 1) {
     const message = highlighted[index];
     const highlightId = uniqueHighlightId(message.id, highlightIds);
-    const sourceFrame = clampFrame(Math.round(message.timeStart * fps), sourceDuration);
+    const sourceFrame = Math.max(0, highlightedFrames[index] - gameplayStartFrame);
     const isFinalHighlight = index === highlighted.length - 1;
     const speech = await createTtsLayer({
       job,
@@ -74,8 +93,9 @@ export async function applyDefaultTemplate1(
       sourceFrame: read.sourceFrame,
       durationFrames: read.speech.time.duration,
     })),
-    sourceDuration,
+    sourceDuration: gameplaySourceDuration,
     outputOffsetFrames: introFrames,
+    playback,
   });
   const readsById = new Map(highlightReads.map((read) => [read.id, read]));
 
@@ -104,12 +124,15 @@ export async function applyDefaultTemplate1(
     }
   }
 
+  const timelineEdits = {
+    trim: { startFrame: gameplayStartFrame, endFrame: rawSourceDuration },
+    playback,
+    freezes: highlightPlan.freezes,
+  };
   const videoEndFrame =
-    introFrames +
-    sourceDuration +
-    highlightPlan.freezes.reduce((total, freeze) => total + freeze.durationFrames, 0);
+    introFrames + outputDurationForTimelineEdits(rawSourceDuration, timelineEdits);
   const outroStart = videoEndFrame;
-  const totalDuration = outroStart + OUTRO_FRAMES;
+  const totalDuration = outroStart + DEFAULT_TEMPLATE1_TIMING.outroFrames;
   const speakerFace = botFaceForSpeaker(speaker);
 
   const layers: EditLayer[] = [
@@ -118,7 +141,7 @@ export async function applyDefaultTemplate1(
       kind: "video-source",
       source: "base-recording",
       name: "Clip video",
-      time: { start: introFrames, duration: sourceDuration },
+      time: { start: introFrames, duration: rawSourceDuration },
       box: { x: 0, y: 0, width: TIKTOK_CANVAS.width, height: TIKTOK_CANVAS.height },
       fit: "cover",
       zIndex: 0,
@@ -158,7 +181,7 @@ export async function applyDefaultTemplate1(
       id: "outro-white-background",
       kind: "shape",
       name: "Outro white background",
-      time: { start: outroStart, duration: OUTRO_FRAMES },
+      time: { start: outroStart, duration: DEFAULT_TEMPLATE1_TIMING.outroFrames },
       box: { x: 0, y: 0, width: TIKTOK_CANVAS.width, height: TIKTOK_CANVAS.height },
       zIndex: 90,
       shape: "rect",
@@ -168,7 +191,7 @@ export async function applyDefaultTemplate1(
       id: "outro-cta",
       kind: "text",
       name: "Outro clankerfights.ai",
-      time: { start: outroStart, duration: OUTRO_FRAMES },
+      time: { start: outroStart, duration: DEFAULT_TEMPLATE1_TIMING.outroFrames },
       text: "clankerfights.ai",
       box: { x: 80, y: 820, width: 920, height: 220 },
       zIndex: 100,
@@ -191,7 +214,7 @@ export async function applyDefaultTemplate1(
       background: "#ffffff",
       durationFrames: totalDuration,
     },
-    timelineEdits: { freezes: highlightPlan.freezes },
+    timelineEdits,
     layers,
   };
 }
@@ -308,6 +331,52 @@ function faceBoxForIndex(index: number) {
 
 function clampFrame(frame: number, duration: number): number {
   return Math.max(0, Math.min(duration - 1, frame));
+}
+
+type TemplateChatMessage = {
+  id: number;
+  speaker: string;
+  playerId: string;
+  channel: string;
+  text: string;
+  timeStart: number;
+  timeEnd: number;
+  timestamp: number;
+};
+
+async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMessage[]> {
+  const fromJob = job.quoteJob.messages ?? job.quoteJob.rawMaterials.messages;
+  if (fromJob?.length) return sortChatMessages(fromJob);
+
+  if (job.artifacts.factoryPacketPath) {
+    try {
+      const packet = JSON.parse(
+        await fs.readFile(job.artifacts.factoryPacketPath, "utf8"),
+      ) as ClipFactoryPacket;
+      if (packet.messages.length > 0) return sortChatMessages(packet.messages);
+    } catch {
+      // Older jobs may not have a usable packet; highlighted chat is the best fallback.
+    }
+  }
+
+  return sortChatMessages(job.quoteJob.highlightedMessages);
+}
+
+function sortChatMessages<T extends TemplateChatMessage>(messages: readonly T[]): T[] {
+  return [...messages].sort((a, b) => a.timeStart - b.timeStart);
+}
+
+function chatVisibleSourceFrame(
+  message: TemplateChatMessage,
+  fps: number,
+  sourceDuration: number,
+): number {
+  const startFrame = Math.round(message.timeStart * fps);
+  const settledFrame = startFrame + DEFAULT_TEMPLATE1_TIMING.highlightVisibilitySettleFrames;
+  const endFrame = Math.round(message.timeEnd * fps);
+  const latestFrameBeforeNextMessage =
+    endFrame > startFrame ? Math.max(startFrame, endFrame - 1) : settledFrame;
+  return clampFrame(Math.min(settledFrame, latestFrameBeforeNextMessage), sourceDuration);
 }
 
 function safeFileName(value: string): string {

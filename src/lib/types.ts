@@ -1,4 +1,5 @@
 import type {
+  BaseRecordingTiming,
   ClipCapturePlan,
   ClipRawMaterials,
   EditComposition,
@@ -72,6 +73,10 @@ export type HighlightedMessage = {
   timestamp: number;
 };
 
+export type ClipChatMessage = HighlightedMessage & {
+  highlighted: boolean;
+};
+
 export type QuoteJob = {
   clipId: string;
   clipUrl: string;
@@ -83,9 +88,11 @@ export type QuoteJob = {
   finalMessageTone?: string;
   finalMessageVoiceInstructions?: string;
   selectedTemplateId?: string;
+  clipPlaybackSpeed?: number;
   trimStartMs: number;
   trimEndMs: number;
   durationSeconds: number;
+  messages?: ClipChatMessage[];
   highlightedChatIds: number[];
   highlightedMessages: HighlightedMessage[];
   players: ClipPlayerWire[];
@@ -127,6 +134,7 @@ export type FactoryJob = {
   editRecipe: EditRecipe;
   artifacts: {
     baseRecordingPath?: string;
+    baseRecordingTiming?: BaseRecordingTiming;
     rawVideoPath?: string;
     factoryPacketPath?: string;
     renderedVideoPath?: string;
