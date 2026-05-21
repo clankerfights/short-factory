@@ -18,9 +18,21 @@ type SourceUrls = {
 export function normalizeClipDetailToQuoteJob(args: {
   detail: ClipDetailWire;
   source: SourceUrls;
+  hookText?: string;
   toneHint?: string;
+  finalMessageTone?: string;
+  finalMessageVoiceInstructions?: string;
+  selectedTemplateId?: string;
 }): QuoteJob {
-  const { detail, source, toneHint } = args;
+  const {
+    detail,
+    source,
+    hookText,
+    toneHint,
+    finalMessageTone,
+    finalMessageVoiceInstructions,
+    selectedTemplateId,
+  } = args;
   const snapshot = detail.clip.snapshot;
   assertUsableSnapshot(snapshot);
 
@@ -76,7 +88,11 @@ export function normalizeClipDetailToQuoteJob(args: {
     playbackUrl: source.playbackUrl,
     game: detail.match.gameSlug,
     speaker,
+    ...(hookText ? { hookText } : {}),
     ...(toneHint ? { toneHint } : {}),
+    ...(finalMessageTone ? { finalMessageTone } : {}),
+    ...(finalMessageVoiceInstructions ? { finalMessageVoiceInstructions } : {}),
+    ...(selectedTemplateId ? { selectedTemplateId } : {}),
     trimStartMs,
     trimEndMs,
     durationSeconds,

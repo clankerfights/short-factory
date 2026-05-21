@@ -78,7 +78,11 @@ export type QuoteJob = {
   playbackUrl: string;
   game: string;
   speaker: string;
+  hookText?: string;
   toneHint?: string;
+  finalMessageTone?: string;
+  finalMessageVoiceInstructions?: string;
+  selectedTemplateId?: string;
   trimStartMs: number;
   trimEndMs: number;
   durationSeconds: number;
@@ -92,6 +96,7 @@ export type QuoteJob = {
 export type EditRecipeVariant = {
   variantId: string;
   template: "narrator_quote_punchline";
+  templateId?: string;
   setupLine: string;
   openingCaption: string;
   speaker: string;

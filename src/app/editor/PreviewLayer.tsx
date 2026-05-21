@@ -68,6 +68,7 @@ export function PreviewLayer({
           src={previewUrl}
           alt=""
           style={{ width: "100%", height: "100%", objectFit: layer.fit }}
+          className={layer.flipX ? "flippedImagePreview" : undefined}
         />
       ) : (
         <div className="previewImage">image</div>

@@ -3,6 +3,8 @@ import type { ImageLayer as ImageLayerModel } from "../../lib/edit-model";
 
 export function ImageLayer({ layer }: { layer: ImageLayerModel }) {
   const src = layer.src.startsWith("http") ? layer.src : staticFile(layer.src);
+  const scale = layer.transform?.scale ?? 1;
+  const scaleX = layer.flipX ? -scale : scale;
   return (
     <Img
       src={src}
@@ -14,7 +16,7 @@ export function ImageLayer({ layer }: { layer: ImageLayerModel }) {
         height: layer.box.height,
         objectFit: layer.fit,
         opacity: layer.opacity ?? layer.transform?.opacity ?? 1,
-        transform: `scale(${layer.transform?.scale ?? 1}) rotate(${layer.transform?.rotateDeg ?? 0}deg)`,
+        transform: `scale(${scaleX}, ${scale}) rotate(${layer.transform?.rotateDeg ?? 0}deg)`,
       }}
     />
   );

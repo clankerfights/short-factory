@@ -49,6 +49,55 @@ main {
     var(--bg);
 }
 
+.factoryHome {
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+}
+
+.launchPanel {
+  width: min(680px, 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(17, 21, 26, 0.94);
+  padding: 24px;
+}
+
+.launchHeader {
+  margin-bottom: 22px;
+}
+
+.launchHeader h1 {
+  font-size: 46px;
+  line-height: 1;
+}
+
+.launchForm {
+  display: grid;
+  gap: 14px;
+}
+
+.launchForm textarea {
+  padding-top: 12px;
+  resize: vertical;
+}
+
+.launchButton {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.pipelineStatus {
+  margin-top: 12px;
+  border: 1px solid rgba(0, 224, 184, 0.34);
+  border-radius: 8px;
+  background: rgba(0, 224, 184, 0.1);
+  color: #d3fff7;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 850;
+}
+
 .workspace {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
@@ -720,6 +769,10 @@ code {
   width: 100%;
   height: 100%;
   overflow: visible;
+}
+
+.flippedImagePreview {
+  transform: scaleX(-1);
 }
 
 .rawPreviewVideo {

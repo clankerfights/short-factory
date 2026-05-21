@@ -8,11 +8,30 @@ import { buildNarratorQuoteComposition } from "./composition-builder";
 import type { EditRecipeVariant, FactoryJob } from "./types";
 
 export function compositionForVariant(variant: EditRecipeVariant): EditComposition {
-  return variant.composition ?? buildNarratorQuoteComposition(variant);
+  return ensureUniqueCompositionIds(
+    variant.composition ?? buildNarratorQuoteComposition(variant),
+  );
 }
 
 export function sortedLayers(layers: EditLayer[]): EditLayer[] {
   return [...layers].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+}
+
+export function ensureUniqueCompositionIds(
+  composition: EditComposition,
+): EditComposition {
+  return {
+    ...composition,
+    layers: uniquifyIds(composition.layers, "layer"),
+    timelineEdits: composition.timelineEdits
+      ? {
+          ...composition.timelineEdits,
+          freezes: composition.timelineEdits.freezes
+            ? uniquifyIds(composition.timelineEdits.freezes, "freeze")
+            : composition.timelineEdits.freezes,
+        }
+      : composition.timelineEdits,
+  };
 }
 
 export function applyCompositionToJob(
@@ -216,17 +235,27 @@ export function normalizeTrim(
 
 function withTimelineDuration(composition: EditComposition): EditComposition {
   const sourceDuration = sourceDurationFrames(composition);
+  const baseLayer = composition.layers.find((layer) => layer.kind === "video-source");
   const normalizedFreezes = normalizeFreezes(
     composition.timelineEdits?.freezes,
     sourceDuration,
   );
+  const freezeDuration = normalizedFreezes.reduce(
+    (total, freeze) => total + freeze.durationFrames,
+    0,
+  );
+  const videoEnd = (baseLayer?.time.start ?? 0) + sourceDuration + freezeDuration;
+  const layerEnd = composition.layers.reduce(
+    (end, layer) => Math.max(end, layer.time.start + layer.time.duration),
+    1,
+  );
+  const preserveLayerEnd =
+    Boolean(composition.templateId) || (baseLayer?.time.start ?? 0) > 0;
   return {
     ...composition,
     canvas: {
       ...composition.canvas,
-      durationFrames:
-        sourceDuration +
-        normalizedFreezes.reduce((total, freeze) => total + freeze.durationFrames, 0),
+      durationFrames: Math.max(1, videoEnd, preserveLayerEnd ? layerEnd : 1),
     },
     timelineEdits: {
       ...composition.timelineEdits,
@@ -237,4 +266,23 @@ function withTimelineDuration(composition: EditComposition): EditComposition {
 
 function clampFrame(frame: number, durationFrames: number): number {
   return Math.max(0, Math.min(Math.max(0, durationFrames - 1), Math.round(frame)));
+}
+
+function uniquifyIds<T extends { id: string }>(items: T[], fallbackPrefix: string): T[] {
+  const seen = new Map<string, number>();
+  let changed = false;
+  const nextItems = items.map((item) => {
+    const baseId = item.id.trim() || fallbackPrefix;
+    const previousCount = seen.get(baseId) ?? 0;
+    seen.set(baseId, previousCount + 1);
+    if (previousCount === 0 && baseId === item.id) return item;
+
+    changed = true;
+    return {
+      ...item,
+      id: previousCount === 0 ? baseId : `${baseId}-${previousCount + 1}`,
+    };
+  });
+
+  return changed ? nextItems : items;
 }
