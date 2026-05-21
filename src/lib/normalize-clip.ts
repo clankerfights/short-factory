@@ -24,10 +24,13 @@ export function normalizeClipDetailToQuoteJob(args: {
   const snapshot = detail.clip.snapshot;
   assertUsableSnapshot(snapshot);
 
-  const trimStartMs = detail.clip.trimStartMs ?? 0;
-  const trimEndMs = detail.clip.trimEndMs ?? snapshot.durationMs;
-  const windowStartTimestamp = snapshot.capturedAt - snapshot.durationMs + trimStartMs;
-  const windowEndTimestamp = snapshot.capturedAt - snapshot.durationMs + trimEndMs;
+  const trimWindow = resolveTrimWindow({
+    snapshot,
+    trimStartMs: detail.clip.trimStartMs,
+    trimEndMs: detail.clip.trimEndMs,
+  });
+  const { trimStartMs, trimEndMs, windowStartTimestamp, windowEndTimestamp } =
+    trimWindow;
 
   const messages = extractReplayChat(snapshot.events, {
     windowStartTimestamp,
@@ -127,6 +130,34 @@ function assertUsableSnapshot(snapshot: ClipSnapshot): asserts snapshot is ClipS
   if (!snapshot || !Array.isArray(snapshot.events)) {
     throw new Error("Clip detail did not include a replay snapshot with events.");
   }
+}
+
+function resolveTrimWindow(args: {
+  snapshot: ClipSnapshot;
+  trimStartMs: number | null;
+  trimEndMs: number | null;
+}) {
+  const snapshotStartTimestamp = args.snapshot.capturedAt - args.snapshot.durationMs;
+  const rawStart = args.trimStartMs ?? 0;
+  const rawEnd = args.trimEndMs ?? args.snapshot.durationMs;
+  const trimsAreAbsolute =
+    rawStart >= snapshotStartTimestamp && rawEnd <= args.snapshot.capturedAt;
+
+  if (trimsAreAbsolute) {
+    return {
+      trimStartMs: rawStart - snapshotStartTimestamp,
+      trimEndMs: rawEnd - snapshotStartTimestamp,
+      windowStartTimestamp: rawStart,
+      windowEndTimestamp: rawEnd,
+    };
+  }
+
+  return {
+    trimStartMs: rawStart,
+    trimEndMs: rawEnd,
+    windowStartTimestamp: snapshotStartTimestamp + rawStart,
+    windowEndTimestamp: snapshotStartTimestamp + rawEnd,
+  };
 }
 
 function extractReplayChat(

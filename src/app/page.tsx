@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { FactoryJob } from "../lib/types";
 
 const toneHints = ["", "too_deep", "deadpan", "roast", "matrix", "iconic"];
@@ -15,12 +15,17 @@ export default function Home() {
   const [toneHint, setToneHint] = useState("");
   const [job, setJob] = useState<FactoryJob | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"ingest" | "record" | "render" | null>(null);
+  const [busy, setBusy] = useState<"ingest" | "record" | "raw-render" | "render" | "open-folder" | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const selectedVariant = job?.editRecipe.variants[0];
   const quoteText = useMemo(
     () => job?.quoteJob.highlightedMessages.map((message) => message.text).join(" "),
     [job],
   );
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,14 +47,21 @@ export default function Home() {
     }
 
     setJob(payload.job);
+    await runInitialRawPipeline(payload.job);
   }
 
-  async function runStep(step: "record" | "render") {
-    if (!job) return;
+  async function runInitialRawPipeline(createdJob: FactoryJob) {
+    const recorded = await runStep("record", createdJob);
+    if (!recorded) return;
+    await runStep("raw-render", recorded);
+  }
+
+  async function runStep(step: "record" | "raw-render" | "render", activeJob = job) {
+    if (!activeJob) return null;
     setBusy(step);
     setError(null);
 
-    const response = await fetch(`/api/jobs/${job.id}/${step}`, {
+    const response = await fetch(`/api/jobs/${activeJob.id}/${step}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: step === "render" ? JSON.stringify({ variantId: selectedVariant?.variantId }) : "{}",
@@ -60,10 +72,29 @@ export default function Home() {
     if (!response.ok || !payload.job) {
       setError(payload.error ?? `${step} failed.`);
       if (payload.job) setJob(payload.job);
-      return;
+      return null;
     }
 
     setJob(payload.job);
+    return payload.job;
+  }
+
+  async function openRenderedFolder(activeJob = job) {
+    if (!activeJob) return;
+    setBusy("open-folder");
+    setError(null);
+
+    const response = await fetch(`/api/jobs/${activeJob.id}/open-folder`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ artifact: "rendered" }),
+    });
+    const payload = (await response.json()) as { error?: string };
+    setBusy(null);
+
+    if (!response.ok) {
+      setError(payload.error ?? "Could not open the MP4 folder.");
+    }
   }
 
   return (
@@ -71,13 +102,14 @@ export default function Home() {
       <section className="workspace">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Quote Factory MVP</p>
-            <h1>Clankerfights TikTok Factory</h1>
+            <p className="eyebrow">Clip to TikTok</p>
+            <h1>Make a Clankerfights short</h1>
           </div>
           <div className="statusPills">
-            <span>API ingest</span>
-            <span>9:16 capture</span>
-            <span>Recipe render</span>
+            <a href="/templates">Templates</a>
+            <span>Paste clip</span>
+            <span>Edit overlays</span>
+            <span>Render MP4</span>
           </div>
         </header>
 
@@ -102,8 +134,11 @@ export default function Home() {
             </select>
           </label>
 
-          <button className="primaryButton" disabled={busy === "ingest" || !clipUrl.trim()}>
-            {busy === "ingest" ? "Fetching..." : "Generate"}
+          <button
+            className="primaryButton"
+            disabled={hydrated && (busy !== null || !clipUrl.trim())}
+          >
+            {busy === "ingest" ? "Fetching..." : "Create raw MP4"}
           </button>
         </form>
 
@@ -141,13 +176,29 @@ export default function Home() {
             <section className="panel pipelinePanel">
               <div className="sectionHeader">
                 <div>
-                  <p className="eyebrow">Pipeline</p>
-                  <h2>Artifacts</h2>
+                  <p className="eyebrow">Next steps</p>
+                  <h2>Record, edit, render</h2>
                 </div>
-                <span className={`state ${job.status.render}`}>{job.status.render}</span>
+                <span className={`state ${job.artifacts.rawVideoPath ? "complete" : "pending"}`}>
+                  {job.artifacts.rawVideoPath ? "raw ready" : busy ?? "pending"}
+                </span>
               </div>
 
               <div className="actions">
+                <a
+                  className="secondaryButton linkButton"
+                  href={`/jobs/${job.id}/edit`}
+                  aria-disabled={!job.artifacts.rawVideoPath}
+                >
+                  Edit overlays
+                </a>
+                <a
+                  className="secondaryButton linkButton"
+                  href="/templates"
+                  aria-disabled={!job.artifacts.rawVideoPath}
+                >
+                  Choose template
+                </a>
                 <button
                   className="secondaryButton"
                   onClick={() => runStep("record")}
@@ -156,16 +207,33 @@ export default function Home() {
                   {busy === "record" ? "Recording..." : "Record 9:16"}
                 </button>
                 <button
+                  className="secondaryButton"
+                  onClick={() => runStep("raw-render")}
+                  disabled={busy !== null || !job.artifacts.baseRecordingPath}
+                >
+                  {busy === "raw-render" ? "Rendering raw..." : "Render raw MP4"}
+                </button>
+                <button
                   className="primaryButton"
                   onClick={() => runStep("render")}
                   disabled={busy !== null || !job.artifacts.baseRecordingPath}
                 >
                   {busy === "render" ? "Rendering..." : "Render v1"}
                 </button>
+                {job.artifacts.renderedVideoPath ? (
+                  <button
+                    className="secondaryButton"
+                    onClick={() => openRenderedFolder()}
+                    disabled={busy !== null}
+                  >
+                    {busy === "open-folder" ? "Opening..." : "Open folder"}
+                  </button>
+                ) : null}
               </div>
 
               <div className="artifactList">
                 <Artifact label="Base" value={job.artifacts.baseRecordingPath} />
+                <Artifact label="Raw MP4" value={job.artifacts.rawVideoPath} />
                 <Artifact label="MP4" value={job.artifacts.renderedVideoPath} />
                 <Artifact label="Job" value={`data/jobs/${job.id}/job.json`} />
               </div>

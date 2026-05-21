@@ -122,8 +122,21 @@ export type FactoryJob = {
   editRecipe: EditRecipe;
   artifacts: {
     baseRecordingPath?: string;
+    rawVideoPath?: string;
     factoryPacketPath?: string;
     renderedVideoPath?: string;
     error?: string;
   };
+};
+
+export type TemplateRecord = {
+  id: string;
+  name: string;
+  description: string;
+  thumbnailPath?: string;
+  tags: string[];
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  composition: EditComposition;
 };

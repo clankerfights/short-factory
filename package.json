@@ -8,14 +8,17 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck",
+    "validate:editor": "tsx scripts/validate-editor.ts",
+    "check": "npm run typecheck && npm run validate:editor",
     "record:clip": "tsx scripts/record-clip.ts",
+    "render:raw": "tsx scripts/render-raw.ts",
     "render:recipe": "tsx scripts/render-recipe.ts"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.464",
     "@remotion/renderer": "^4.0.464",
     "next": "^16.2.6",
+    "openai": "^6.38.0",
     "playwright": "^1.60.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

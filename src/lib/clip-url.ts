@@ -17,7 +17,7 @@ export function normalizeClipInput(input: string, baseUrl = clankerfightsBaseUrl
   }
 
   const clipId = extractClipId(trimmed);
-  const base = new URL(baseUrl);
+  const base = resolveClipBaseUrl(trimmed, baseUrl);
   const clipUrl = new URL(`/clip/${clipId}`, base);
   const playbackUrl = new URL("/", base);
   playbackUrl.searchParams.set("clip", clipId);
@@ -38,6 +38,19 @@ export function normalizeClipInput(input: string, baseUrl = clankerfightsBaseUrl
     playbackUrl: playbackUrl.toString(),
     apiUrl: new URL(`/api/clips/${clipId}`, base).toString(),
   };
+}
+
+function resolveClipBaseUrl(input: string, fallbackBaseUrl: string): URL {
+  try {
+    const url = new URL(input);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return new URL(url.origin);
+    }
+  } catch {
+    // Bare clip IDs use the configured default base URL.
+  }
+
+  return new URL(fallbackBaseUrl);
 }
 
 function extractClipId(input: string): string {

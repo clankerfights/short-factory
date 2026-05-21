@@ -15,6 +15,17 @@ export type TimeRange = {
   duration: number;
 };
 
+export type FreezeFrameEdit = {
+  id: string;
+  atFrame: number;
+  durationFrames: number;
+};
+
+export type TrimFrameEdit = {
+  startFrame: number;
+  endFrame: number;
+};
+
 export type ViewportFit = "cover" | "contain" | "fill";
 
 export type LayerTransform = {
@@ -27,6 +38,49 @@ export type KeyframedNumber = {
   from: number;
   to: number;
   easing?: "linear" | "easeOut" | "easeInOut";
+};
+
+export type EditLayerKind =
+  | "video-source"
+  | "text"
+  | "speaker-badge"
+  | "image"
+  | "shape"
+  | "zoom"
+  | "callout"
+  | "audio-file"
+  | "tts"
+  | "cta";
+
+export type BaseEditLayer = {
+  id: string;
+  kind: EditLayerKind;
+  name?: string;
+  time: TimeRange;
+  box?: Box;
+  locked?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+};
+
+export type TextStyle = {
+  fontSize: number;
+  lineHeight: number;
+  weight: number;
+  color: string;
+  accentColor?: string;
+  background?: string;
+  borderColor?: string;
+  borderLeftColor?: string;
+  textTransform?: "uppercase" | "none";
+  shadow?: boolean;
+  align?: "left" | "center" | "right";
+};
+
+export type TtsSettings = {
+  voice?: string;
+  instructions?: string;
+  volume?: number;
 };
 
 export type ClipCapturePlan = {
@@ -134,10 +188,8 @@ export type ClipRawMaterials = {
   };
 };
 
-export type VideoSourceLayer = {
-  id: string;
+export type VideoSourceLayer = BaseEditLayer & {
   kind: "video-source";
-  time: TimeRange;
   source: "base-recording";
   box: Box;
   fit: ViewportFit;
@@ -153,49 +205,87 @@ export type VideoSourceLayer = {
   };
 };
 
-export type TextOverlayLayer = {
-  id: string;
+export type TextOverlayLayer = BaseEditLayer & {
   kind: "text";
-  time: TimeRange;
   text: string;
   box: Box;
-  style: {
-    fontSize: number;
-    lineHeight: number;
-    weight: number;
-    color: string;
-    accentColor?: string;
-    background?: string;
-    borderColor?: string;
-    borderLeftColor?: string;
-    textTransform?: "uppercase" | "none";
-    shadow?: boolean;
-    align?: "left" | "center";
-  };
+  style: TextStyle;
   emphasis?: {
     phrase: string;
     color: string;
   };
+  tts?: TtsSettings;
   animation?: {
     enterFromY?: number;
     punchInFrame?: number;
   };
 };
 
-export type SpeakerBadgeLayer = {
-  id: string;
+export type SpeakerBadgeLayer = BaseEditLayer & {
   kind: "speaker-badge";
-  time: TimeRange;
   speaker: string;
   expression: "neutral" | "intense" | "confused" | "smug";
   box: Box;
   accentColor: string;
 };
 
-export type CtaLayer = {
-  id: string;
+export type ImageLayer = BaseEditLayer & {
+  kind: "image";
+  src: string;
+  box: Box;
+  fit: ViewportFit;
+  opacity?: number;
+  transform?: LayerTransform;
+};
+
+export type ShapeLayer = BaseEditLayer & {
+  kind: "shape";
+  shape: "rect" | "ellipse" | "line" | "arrow";
+  box: Box;
+  style: {
+    fill: string;
+    stroke?: string;
+    strokeWidth?: number;
+    radius?: number;
+    opacity?: number;
+  };
+};
+
+export type ZoomLayer = BaseEditLayer & {
+  kind: "zoom";
+  box: Box;
+  easing?: "linear" | "easeOut" | "easeInOut";
+};
+
+export type CalloutLayer = BaseEditLayer & {
+  kind: "callout";
+  text: string;
+  box: Box;
+  style: TextStyle & {
+    arrow?: "none" | "up" | "down" | "left" | "right";
+  };
+  tts?: TtsSettings;
+};
+
+export type AudioFileLayer = BaseEditLayer & {
+  kind: "audio-file";
+  src: string;
+  volume: number;
+};
+
+export type TtsLayer = BaseEditLayer & {
+  kind: "tts";
+  text: string;
+  speaker?: string;
+  voice: string;
+  instructions?: string;
+  artifactPath?: string;
+  src?: string;
+  volume: number;
+};
+
+export type CtaLayer = BaseEditLayer & {
   kind: "cta";
-  time: TimeRange;
   text: string;
   box: Box;
   style: {
@@ -204,12 +294,19 @@ export type CtaLayer = {
     fontSize: number;
     weight: number;
   };
+  tts?: TtsSettings;
 };
 
 export type EditLayer =
   | VideoSourceLayer
   | TextOverlayLayer
   | SpeakerBadgeLayer
+  | ImageLayer
+  | ShapeLayer
+  | ZoomLayer
+  | CalloutLayer
+  | AudioFileLayer
+  | TtsLayer
   | CtaLayer;
 
 export type EditComposition = {
@@ -217,6 +314,10 @@ export type EditComposition = {
     fps: number;
     durationFrames: number;
     background: string;
+  };
+  timelineEdits?: {
+    trim?: TrimFrameEdit;
+    freezes?: FreezeFrameEdit[];
   };
   layers: EditLayer[];
 };
