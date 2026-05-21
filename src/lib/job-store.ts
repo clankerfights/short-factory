@@ -33,6 +33,29 @@ export async function readFactoryJob(jobId: string): Promise<FactoryJob> {
   return JSON.parse(raw) as FactoryJob;
 }
 
+export async function listFactoryJobs(limit = 12): Promise<FactoryJob[]> {
+  const entries = await fs.readdir(DATA_DIR, { withFileTypes: true }).catch(() => []);
+  const jobs = await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        try {
+          const job = await readFactoryJob(entry.name);
+          const stat = await fs.stat(jobPath(entry.name));
+          return { job, updatedAtMs: stat.mtimeMs };
+        } catch {
+          return null;
+        }
+      }),
+  );
+
+  return jobs
+    .filter((entry): entry is { job: FactoryJob; updatedAtMs: number } => Boolean(entry))
+    .sort((a, b) => b.updatedAtMs - a.updatedAtMs)
+    .slice(0, limit)
+    .map((entry) => entry.job);
+}
+
 export async function saveFactoryJob(job: FactoryJob): Promise<void> {
   assertSafeJobId(job.id);
   const dir = path.dirname(jobPath(job.id));

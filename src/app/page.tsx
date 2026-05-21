@@ -10,12 +10,19 @@ type ApiJobResponse = {
   error?: string;
 };
 
+type ApiJobsResponse = {
+  jobs?: FactoryJob[];
+  error?: string;
+};
+
 export default function Home() {
   const [clipUrl, setClipUrl] = useState("");
   const [toneHint, setToneHint] = useState("");
+  const [resumeJobId, setResumeJobId] = useState("");
+  const [recentJobs, setRecentJobs] = useState<FactoryJob[]>([]);
   const [job, setJob] = useState<FactoryJob | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"ingest" | "record" | "raw-render" | "render" | "open-folder" | null>(null);
+  const [busy, setBusy] = useState<"ingest" | "record" | "raw-render" | "render" | "open-folder" | "load" | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const selectedVariant = job?.editRecipe.variants[0];
   const quoteText = useMemo(
@@ -25,7 +32,16 @@ export default function Home() {
 
   useEffect(() => {
     setHydrated(true);
+    void refreshRecentJobs();
   }, []);
+
+  async function refreshRecentJobs() {
+    const response = await fetch("/api/jobs");
+    const payload = (await response.json()) as ApiJobsResponse;
+    if (response.ok && payload.jobs) {
+      setRecentJobs(payload.jobs);
+    }
+  }
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +63,27 @@ export default function Home() {
     }
 
     setJob(payload.job);
+    await refreshRecentJobs();
     await runInitialRawPipeline(payload.job);
+  }
+
+  async function loadJob(jobId = resumeJobId) {
+    const normalizedJobId = jobId.trim();
+    if (!normalizedJobId) return;
+    setBusy("load");
+    setError(null);
+
+    const response = await fetch(`/api/jobs/${normalizedJobId}`);
+    const payload = (await response.json()) as ApiJobResponse;
+    setBusy(null);
+
+    if (!response.ok || !payload.job) {
+      setError(payload.error ?? "Could not load that job.");
+      return;
+    }
+
+    setJob(payload.job);
+    setResumeJobId(payload.job.id);
   }
 
   async function runInitialRawPipeline(createdJob: FactoryJob) {
@@ -76,6 +112,7 @@ export default function Home() {
     }
 
     setJob(payload.job);
+    await refreshRecentJobs();
     return payload.job;
   }
 
@@ -141,6 +178,42 @@ export default function Home() {
             {busy === "ingest" ? "Fetching..." : "Create raw MP4"}
           </button>
         </form>
+
+        <section className="resumePanel">
+          <form className="resumeBand" onSubmit={(event) => {
+            event.preventDefault();
+            void loadJob();
+          }}>
+            <label>
+              <span>Resume job ID</span>
+              <input
+                value={resumeJobId}
+                onChange={(event) => setResumeJobId(event.target.value)}
+                placeholder="03bc99a5-b83c-48e7-b442-5072db594c69"
+              />
+            </label>
+            <button className="secondaryButton" disabled={busy !== null || !resumeJobId.trim()}>
+              {busy === "load" ? "Loading..." : "Load job"}
+            </button>
+          </form>
+
+          {recentJobs.length > 0 ? (
+            <div className="recentJobs">
+              {recentJobs.map((recentJob) => (
+                <button
+                  className={`recentJob ${job?.id === recentJob.id ? "selected" : ""}`}
+                  key={recentJob.id}
+                  onClick={() => loadJob(recentJob.id)}
+                  disabled={busy !== null}
+                >
+                  <span>{recentJob.quoteJob.speaker}</span>
+                  <strong>{recentJob.quoteJob.game}</strong>
+                  <small>{recentJob.id.slice(0, 8)} / {recentJob.artifacts.rawVideoPath ? "raw ready" : "needs raw"}</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </section>
 
         {error ? <div className="errorLine">{error}</div> : null}
 
