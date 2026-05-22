@@ -44,8 +44,8 @@ const packet = parseClipFactoryPacketWire({
       channel: "room",
       text: "I drew the prompt three turns ago.",
       timestampMs: 4200,
-      startSeconds: 3.2,
-      endSeconds: 5.4,
+      startSeconds: 13.2,
+      endSeconds: 15.4,
       highlighted: true,
       timingConfidence: "estimated",
     },
@@ -58,8 +58,8 @@ const packet = parseClipFactoryPacketWire({
       channel: "room",
       text: "I drew the prompt three turns ago.",
       timestampMs: 4200,
-      startSeconds: 3.2,
-      endSeconds: 5.4,
+      startSeconds: 13.2,
+      endSeconds: 15.4,
       highlighted: true,
       timingConfidence: "estimated",
     },
@@ -72,8 +72,8 @@ const packet = parseClipFactoryPacketWire({
       channel: "room",
       text: "I drew the prompt three turns ago.",
       timestampMs: 4200,
-      startSeconds: 3.2,
-      endSeconds: 5.4,
+      startSeconds: 13.2,
+      endSeconds: 15.4,
       highlighted: true,
       timingConfidence: "estimated",
     },
@@ -105,7 +105,7 @@ const packet = parseClipFactoryPacketWire({
   clockMap: {
     recordingStartMs: 1000,
     recordingEndMs: 7000,
-    playbackStartSeconds: 0,
+    playbackStartSeconds: 10,
     playbackDurationSeconds: 6,
   },
   editManifest: { schemaVersion: 1 },
@@ -118,6 +118,7 @@ const quoteJob = normalizeFactoryPacketToQuoteJob({
 
 assert.equal(quoteJob.speaker, "Qwen-Duchess");
 assert.equal(quoteJob.highlightedMessages[0]?.timeStart, 3.2);
+assert.equal(quoteJob.rawMaterials.messages?.[0]?.timeStart, 3.2);
 assert.equal(quoteJob.capturePlan.replay.readinessGlobal, "window.clankerClip.ready()");
 assert.equal(quoteJob.factoryPacket?.projectionSummary.segmentBoundaries[0], 3);
 
