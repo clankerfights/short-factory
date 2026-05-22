@@ -185,7 +185,7 @@ async function validateDefaultTemplate1FromFactoryPacket(): Promise<void> {
     assert.doesNotThrow(() => editCompositionSchema.parse(composition));
     assert.equal(composition.templateId, DEFAULT_TEMPLATE1_ID);
     assert.equal(composition.templateVersion, DEFAULT_TEMPLATE1_VERSION);
-    assert.equal(composition.timelineEdits?.trim?.startFrame, 116);
+    assert.equal(composition.timelineEdits?.trim?.startFrame, 96);
     assert.equal(composition.timelineEdits?.trim?.endFrame, 180);
     assert.equal(composition.timelineEdits?.playback?.speed, 2);
     assert.equal(composition.timelineEdits?.freezes?.[0]?.atFrame, 0);

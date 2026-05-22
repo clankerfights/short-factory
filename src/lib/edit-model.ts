@@ -79,6 +79,7 @@ export type BaseEditLayer = {
 };
 
 export type TextStyle = {
+  fontFamily?: string;
   fontSize: number;
   lineHeight: number;
   weight: number;
@@ -89,6 +90,9 @@ export type TextStyle = {
   borderLeftColor?: string;
   textTransform?: "uppercase" | "none";
   shadow?: boolean;
+  strokeColor?: string;
+  strokeWidth?: number;
+  whiteSpace?: "normal" | "pre-line";
   align?: "left" | "center" | "right";
 };
 

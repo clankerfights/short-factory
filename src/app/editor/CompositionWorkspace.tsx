@@ -17,13 +17,13 @@ import type {
   TextOverlayLayer,
   ShapeLayer,
   ZoomLayer,
+  BaseRecordingTiming,
 } from "../../lib/edit-model";
 import type { FactoryJob, TemplateRecord } from "../../lib/types";
 import {
   isLayerActiveAtFrame,
   outputFrameForSourceFrame,
   rawSourceDurationFrames,
-  rawFrameToSourceFrame,
   sourceDurationFrames,
   sourceFrameForOutputFrame,
   sourceFrameToRawFrame,
@@ -31,6 +31,7 @@ import {
   withFreezeEdits,
   withTrimEdit,
 } from "../../lib/composition-utils";
+import { recordingFrameForOutputFrame } from "../../lib/source-timeline";
 import { DEFAULT_TTS_INSTRUCTIONS, OPENAI_VOICES } from "../../lib/voice-registry";
 import { PreviewLayer } from "./PreviewLayer";
 import {
@@ -54,6 +55,8 @@ type SaveTarget =
       openFolderUrl: string;
       ttsUrl: string;
       renderedVideoUrl?: string;
+      baseVideoUrl?: string;
+      baseVideoTiming?: BaseRecordingTiming;
       rawVideoUrl?: string;
       templates: TemplateRecord[];
       assets: JobAsset[];
@@ -172,10 +175,9 @@ export function CompositionWorkspace({
           layer.kind === "video-source" ||
           layer.kind === "audio-file" ||
           layer.kind === "tts" ||
-          layer.id === selectedLayerId ||
           isLayerActiveAtFrame(layer, previewFrame),
       ),
-    [previewFrame, selectedLayerId, sortedLayers],
+    [previewFrame, sortedLayers],
   );
   const previewAudioLayers = useMemo(
     () =>
@@ -198,6 +200,9 @@ export function CompositionWorkspace({
     trimWindow,
     rawSourceDuration,
   );
+  const previewMediaUrl =
+    target.kind === "job" ? target.baseVideoUrl ?? target.rawVideoUrl : undefined;
+  const previewMediaFrame = mediaFrameForPreviewFrame(previewFrame);
   const openSection = selectedFreezeId
     ? "freeze"
     : selectedLayer
@@ -215,11 +220,8 @@ export function CompositionWorkspace({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const nextTime = previewRawFrame / composition.canvas.fps;
-    if (Math.abs(video.currentTime - nextTime) > 0.08) {
-      video.currentTime = nextTime;
-    }
-  }, [composition.canvas.fps, previewRawFrame]);
+    syncPreviewVideoFrame(video, previewMediaFrame, composition.canvas.fps);
+  }, [composition.canvas.fps, previewMediaFrame, previewMediaUrl]);
 
   useEffect(() => {
     if (previewFrame >= composition.canvas.durationFrames) {
@@ -431,37 +433,36 @@ export function CompositionWorkspace({
     setPreviewFrame(clampedFrame);
     const video = videoRef.current;
     if (video) {
-      video.currentTime =
-        sourceFrameToRawFrame(
-          sourceFrameForOutputFrame(
-            Math.max(0, clampedFrame - videoStartFrame),
-            freezeEdits,
-            sourceDuration,
-            composition.timelineEdits?.playback,
-          ),
-          trimWindow,
-          rawSourceDuration,
-        ) /
-        composition.canvas.fps;
+      syncPreviewVideoFrame(
+        video,
+        mediaFrameForPreviewFrame(clampedFrame),
+        composition.canvas.fps,
+      );
     }
   }
 
-  function syncPreviewFrameFromVideo() {
-    const video = videoRef.current;
-    if (!video || previewPlaying) return;
-    const rawFrame = Math.round(video.currentTime * composition.canvas.fps);
-    const sourceFrame = rawFrameToSourceFrame(rawFrame, trimWindow, rawSourceDuration);
-    setPreviewFrame(
-      Math.min(
-        composition.canvas.durationFrames - 1,
-        videoStartFrame +
-          outputFrameForSourceFrame(
-            sourceFrame,
-            freezeEdits,
-            sourceDuration,
-            composition.timelineEdits?.playback,
-          ),
+  function mediaFrameForPreviewFrame(frame: number) {
+    const outputFrame = Math.max(0, frame - videoStartFrame);
+    if (target.kind === "job" && target.baseVideoUrl) {
+      return recordingFrameForOutputFrame({
+        outputFrame,
+        freezes: freezeEdits,
+        playback: composition.timelineEdits?.playback,
+        trim: trimWindow,
+        sourceDurationFrames: rawSourceDuration,
+        baseVideoTiming: target.baseVideoTiming,
+        fps: composition.canvas.fps,
+      });
+    }
+    return sourceFrameToRawFrame(
+      sourceFrameForOutputFrame(
+        outputFrame,
+        freezeEdits,
+        sourceDuration,
+        composition.timelineEdits?.playback,
       ),
+      trimWindow,
+      rawSourceDuration,
     );
   }
 
@@ -962,15 +963,28 @@ export function CompositionWorkspace({
               onPointerUp={endPreviewDrag}
               onPointerCancel={endPreviewDrag}
             >
-              {target.kind === "job" && target.rawVideoUrl ? (
+              {previewMediaUrl ? (
                 <video
                   ref={videoRef}
                   className="rawPreviewVideo"
-                  src={target.rawVideoUrl}
+                  src={previewMediaUrl}
                   muted
                   playsInline
                   style={previewVideoTransform}
-                  onTimeUpdate={syncPreviewFrameFromVideo}
+                  onLoadedMetadata={(event) =>
+                    syncPreviewVideoFrame(
+                      event.currentTarget,
+                      previewMediaFrame,
+                      composition.canvas.fps,
+                    )
+                  }
+                  onLoadedData={(event) =>
+                    syncPreviewVideoFrame(
+                      event.currentTarget,
+                      previewMediaFrame,
+                      composition.canvas.fps,
+                    )
+                  }
                   onEnded={() => setPreviewPlaying(false)}
                 />
               ) : null}
@@ -997,7 +1011,7 @@ export function CompositionWorkspace({
             <button
               className="secondaryButton previewPlaybackButton"
               onClick={togglePreviewPlayback}
-              disabled={target.kind !== "job" || !target.rawVideoUrl}
+              disabled={!previewMediaUrl}
             >
               {previewPlaying ? "Pause preview" : "Play preview"}
             </button>
@@ -2520,6 +2534,18 @@ function easeProgress(value: number, easing: ZoomLayer["easing"]): number {
 
 function roundTenths(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function syncPreviewVideoFrame(
+  video: HTMLVideoElement,
+  frame: number,
+  fps: number,
+): void {
+  const nextTime = frame / fps;
+  if (!Number.isFinite(nextTime)) return;
+  if (Math.abs(video.currentTime - nextTime) > 0.08) {
+    video.currentTime = nextTime;
+  }
 }
 
 function audioPreviewUrl(src: string | undefined, jobId: string): string | null {

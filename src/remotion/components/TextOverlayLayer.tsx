@@ -31,14 +31,20 @@ export function TextOverlayLayer({ layer }: { layer: TextOverlayLayerModel }) {
           ? `10px solid ${layer.style.borderLeftColor}`
           : undefined,
         color: layer.style.color,
+        fontFamily: layer.style.fontFamily,
         fontSize: layer.style.fontSize,
         lineHeight: layer.style.lineHeight,
         fontWeight: layer.style.weight,
         textAlign: layer.style.align ?? "left",
         textTransform: layer.style.textTransform,
         textShadow: layer.style.shadow
-          ? "0 8px 28px rgba(0,0,0,0.65)"
+          ? "0 8px 0 rgba(0,0,0,0.95), 0 18px 32px rgba(0,0,0,0.35)"
           : undefined,
+        WebkitTextStroke:
+          layer.style.strokeColor && layer.style.strokeWidth
+            ? `${layer.style.strokeWidth}px ${layer.style.strokeColor}`
+            : undefined,
+        whiteSpace: layer.style.whiteSpace,
         overflow: "hidden",
       }}
     >

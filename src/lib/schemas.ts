@@ -139,6 +139,7 @@ const baseLayerSchema = z.object({
 });
 
 const textStyleSchema = z.object({
+  fontFamily: z.string().optional(),
   fontSize: z.number().positive(),
   lineHeight: z.number().positive(),
   weight: z.number().positive(),
@@ -149,6 +150,9 @@ const textStyleSchema = z.object({
   borderLeftColor: z.string().optional(),
   textTransform: z.enum(["uppercase", "none"]).optional(),
   shadow: z.boolean().optional(),
+  strokeColor: z.string().optional(),
+  strokeWidth: z.number().nonnegative().optional(),
+  whiteSpace: z.enum(["normal", "pre-line"]).optional(),
   align: z.enum(["left", "center", "right"]).optional(),
 });
 

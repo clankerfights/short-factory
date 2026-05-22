@@ -13,16 +13,20 @@ import { packetMessageClipTiming } from "./normalize-clip";
 import { parseClipFactoryPacketWire } from "./schemas";
 import { generateOpenAiSpeech } from "./tts";
 import type { ClipFactoryPacketWire, EditRecipeVariant, FactoryJob } from "./types";
+import { modelIdForSpeaker } from "./model-personas";
 import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
 export const DEFAULT_TEMPLATE1_NAME = "Default Template1";
-export const DEFAULT_TEMPLATE1_VERSION = 7;
+export const DEFAULT_TEMPLATE1_VERSION = 13;
 
 const DEFAULT_TEMPLATE1_TIMING = {
-  outroFrames: TIKTOK_CANVAS.fps,
   gameplaySpeed: 2,
+  finalHighlightPostrollSeconds: 0.55,
 } as const;
+const OUTRO_WOOSH_SRC = "sound-effects/alexis_gaming_cam-woosh-long-cartoon-370386.mp3";
+const TIKTOK_HOOK_FONT =
+  '"TikTok Sans", Montserrat, "Arial Black", Impact, system-ui, sans-serif';
 
 export async function applyDefaultTemplate1(
   job: FactoryJob,
@@ -33,8 +37,11 @@ export async function applyDefaultTemplate1(
   }
 
   const fps = TIKTOK_CANVAS.fps;
-  const rawSourceDuration = Math.max(1, Math.round(job.quoteJob.durationSeconds * fps));
-  const speaker = job.quoteJob.speaker || variant.speaker;
+  const baseSourceDurationSeconds =
+    finitePositive(job.quoteJob.factoryPacket?.clockMap.playbackDurationSeconds) ??
+    finitePositive(job.quoteJob.factoryPacket?.durationSeconds) ??
+    finitePositive(job.quoteJob.rawMaterials.factoryPacket?.durationSeconds) ??
+    job.quoteJob.durationSeconds;
   const hookText = variant.setupLine || variant.openingCaption;
   const introSpeech = await createTtsLayer({
     job,
@@ -44,12 +51,24 @@ export async function applyDefaultTemplate1(
     speaker: "Narrator",
     startFrame: 0,
   });
-  const introFrames = Math.max(fps, introSpeech.time.duration);
+  const introFrames = introSpeech.time.duration;
 
-  const highlighted = [...job.quoteJob.highlightedMessages].sort(
-    (a, b) => a.timeStart - b.timeStart,
-  );
   const allChatMessages = await chatMessagesForTemplate(job);
+  const highlightedFromTranscript = allChatMessages.filter((message) => message.highlighted);
+  const highlighted = highlightedFromTranscript.length
+    ? highlightedFromTranscript
+    : sortChatMessages(job.quoteJob.highlightedMessages);
+  const finalHighlightedMessage = highlighted[highlighted.length - 1];
+  const introFace = botFaceForSpeaker(finalHighlightedMessage?.speaker ?? variant.speaker);
+  const introModelId = modelIdForSpeaker(finalHighlightedMessage?.speaker ?? variant.speaker);
+  const sourceDurationSeconds = Math.max(
+    baseSourceDurationSeconds,
+    finalHighlightedMessage
+      ? finalHighlightedMessage.timeStart +
+          DEFAULT_TEMPLATE1_TIMING.finalHighlightPostrollSeconds
+      : 0,
+  );
+  const rawSourceDuration = Math.max(1, Math.round(sourceDurationSeconds * fps));
   const firstChatMessage = allChatMessages[0];
   const firstChatFrame =
     firstChatMessage !== undefined
@@ -69,7 +88,7 @@ export async function applyDefaultTemplate1(
     }),
   );
   const gameplayStartFrame = firstChatFrame;
-  const gameplaySourceDuration = rawSourceDuration - gameplayStartFrame;
+  const gameplaySourceDuration = Math.max(1, rawSourceDuration - gameplayStartFrame);
   const playback = {
     speed: job.quoteJob.clipPlaybackSpeed ?? DEFAULT_TEMPLATE1_TIMING.gameplaySpeed,
   };
@@ -140,8 +159,8 @@ export async function applyDefaultTemplate1(
   const videoEndFrame =
     introFrames + outputDurationForTimelineEdits(rawSourceDuration, timelineEdits);
   const outroStart = videoEndFrame;
-  const totalDuration = outroStart + DEFAULT_TEMPLATE1_TIMING.outroFrames;
-  const speakerFace = botFaceForSpeaker(speaker);
+  const outroFrames = await audioAssetDurationFrames(OUTRO_WOOSH_SRC);
+  const totalDuration = outroStart + outroFrames;
 
   const layers: EditLayer[] = [
     {
@@ -174,22 +193,32 @@ export async function applyDefaultTemplate1(
       zIndex: 20,
       style: {
         fontSize: fitHookFontSize(hookText),
-        lineHeight: 0.96,
+        lineHeight: 0.88,
+        fontFamily: TIKTOK_HOOK_FONT,
         weight: 950,
-        color: "#090909",
+        color: "#ffffff",
+        accentColor: "#ff0050",
+        strokeColor: "#090909",
+        strokeWidth: 7,
+        shadow: true,
         textTransform: "uppercase",
         align: "center",
       },
     },
     introSpeech,
-    ...introFaceLayer(speakerFace?.src, introFrames),
+    ...introFaceLayer({
+      src: introFace?.src,
+      duration: introFrames,
+      modelId: introModelId,
+      game: job.quoteJob.game,
+    }),
     ...faceLayers,
     ...speechLayers,
     {
       id: "outro-white-background",
       kind: "shape",
       name: "Outro white background",
-      time: { start: outroStart, duration: DEFAULT_TEMPLATE1_TIMING.outroFrames },
+      time: { start: outroStart, duration: outroFrames },
       box: { x: 0, y: 0, width: TIKTOK_CANVAS.width, height: TIKTOK_CANVAS.height },
       zIndex: 90,
       shape: "rect",
@@ -199,7 +228,7 @@ export async function applyDefaultTemplate1(
       id: "outro-cta",
       kind: "text",
       name: "Outro clankerfights.ai",
-      time: { start: outroStart, duration: DEFAULT_TEMPLATE1_TIMING.outroFrames },
+      time: { start: outroStart, duration: outroFrames },
       text: "clankerfights.ai",
       box: { x: 80, y: 820, width: 920, height: 220 },
       zIndex: 100,
@@ -210,6 +239,15 @@ export async function applyDefaultTemplate1(
         color: "#090909",
         align: "center",
       },
+    },
+    {
+      id: "outro-woosh-long-cartoon",
+      kind: "audio-file",
+      name: "Outro woosh-long-cartoon",
+      time: { start: outroStart, duration: outroFrames },
+      zIndex: 101,
+      src: OUTRO_WOOSH_SRC,
+      volume: 0.85,
     },
   ];
 
@@ -300,7 +338,7 @@ async function createTtsLayer(args: {
 type HighlightRead = {
   id: string;
   sourceFrame: number;
-  message: FactoryJob["quoteJob"]["highlightedMessages"][number];
+  message: TemplateChatMessage;
   speech: TtsLayer;
   index: number;
 };
@@ -311,20 +349,46 @@ export type HighlightFreezeReadTiming = {
   durationFrames: number;
 };
 
-function introFaceLayer(src: string | undefined, duration: number): EditLayer[] {
-  if (!src) return [];
-  return [
+function introFaceLayer(args: {
+  src: string | undefined;
+  duration: number;
+  modelId?: string;
+  game: string;
+}): EditLayer[] {
+  if (!args.src) return [];
+  const layers: EditLayer[] = [
     {
       id: "intro-speaker-face",
       kind: "image",
-      name: "Punchline AI face",
-      time: { start: 0, duration },
-      box: { x: 150, y: 790, width: 780, height: 880 },
+      name: "Final speaker intro face",
+      time: { start: 0, duration: args.duration },
+      box: { x: 150, y: 700, width: 780, height: 780 },
       zIndex: 25,
-      src,
+      src: args.src,
       fit: "contain",
     },
   ];
+  if (args.modelId) {
+    layers.push({
+      id: "intro-speaker-model-label",
+      kind: "text",
+      name: "Final speaker model label",
+      time: { start: 0, duration: args.duration },
+      text: `${args.modelId}\nplays ${args.game}`,
+      box: { x: 96, y: 1512, width: 888, height: 210 },
+      zIndex: 30,
+      style: {
+        fontFamily: TIKTOK_HOOK_FONT,
+        fontSize: fitIntroModelFontSize(args.modelId),
+        lineHeight: 1.05,
+        weight: 950,
+        color: "#090909",
+        align: "center",
+        whiteSpace: "pre-line",
+      },
+    });
+  }
+  return layers;
 }
 
 function faceBoxForIndex(index: number) {
@@ -346,11 +410,22 @@ type TemplateChatMessage = {
   timeStart: number;
   timeEnd: number;
   timestamp: number;
+  highlighted?: boolean;
 };
 
 async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMessage[]> {
-  const fromJob = job.quoteJob.messages ?? job.quoteJob.rawMaterials.messages;
-  if (fromJob?.length) return sortChatMessages(fromJob);
+  const embeddedPacket =
+    job.quoteJob.factoryPacket ?? job.quoteJob.rawMaterials.factoryPacket;
+  const parsedEmbeddedPacket = embeddedPacket
+    ? parseClipFactoryPacketWire(embeddedPacket)
+    : undefined;
+  if (parsedEmbeddedPacket?.messages.length) {
+    return sortChatMessages(
+      parsedEmbeddedPacket.messages.map((message) =>
+        packetMessageToTemplate(parsedEmbeddedPacket, message),
+      ),
+    );
+  }
 
   if (job.artifacts.factoryPacketPath) {
     try {
@@ -366,9 +441,12 @@ async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMes
         );
       }
     } catch {
-      // Older jobs may not have a usable packet; highlighted chat is the best fallback.
+      // Older jobs may not have a usable packet; normalized job chat is the best fallback.
     }
   }
+
+  const fromJob = job.quoteJob.messages ?? job.quoteJob.rawMaterials.messages;
+  if (fromJob?.length) return sortChatMessages(fromJob);
 
   return sortChatMessages(job.quoteJob.highlightedMessages);
 }
@@ -391,6 +469,7 @@ function packetMessageToTemplate(
     timeStart: timing.timeStart,
     timeEnd: timing.timeEnd,
     timestamp: message.timestampMs,
+    highlighted: message.highlighted,
   };
 }
 
@@ -416,13 +495,42 @@ function uniqueHighlightId(
 }
 
 function fitHookFontSize(text: string): number {
-  if (text.length > 90) return 66;
-  if (text.length > 62) return 78;
-  return 92;
+  if (text.length > 90) return 72;
+  if (text.length > 62) return 88;
+  return 108;
+}
+
+function fitIntroModelFontSize(modelId: string): number {
+  if (modelId.length > 36) return 34;
+  if (modelId.length > 28) return 38;
+  return 42;
+}
+
+async function audioAssetDurationFrames(src: string): Promise<number> {
+  const normalized = src.replace(/^\/+/, "");
+  const relativePath = normalized.startsWith("assets/")
+    ? normalized
+    : path.join("assets", normalized);
+  try {
+    const audio = await fs.readFile(path.join(process.cwd(), relativePath));
+    const durationSeconds = mp3DurationSeconds(audio);
+    if (durationSeconds && Number.isFinite(durationSeconds)) {
+      return Math.max(1, Math.ceil(durationSeconds * TIKTOK_CANVAS.fps));
+    }
+  } catch {
+    // Missing optional sound effects should not block template generation.
+  }
+  return TIKTOK_CANVAS.fps;
 }
 
 function estimateSpeechSeconds(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1.2, words / 2.8 + 0.4);
+}
+
+function finitePositive(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
 }
 

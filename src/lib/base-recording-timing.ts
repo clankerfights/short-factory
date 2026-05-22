@@ -12,7 +12,7 @@ import { DEFAULT_REPLAY_PLAYBACK_RATE } from "./capture-plan";
 
 const PROBE_WIDTH = 36;
 const PROBE_HEIGHT = 64;
-const MEANINGFUL_STDDEV = 12;
+const MEANINGFUL_STDDEV = 9.5;
 const MEANINGFUL_DIFF = 12;
 const STABLE_FRAMES = 5;
 

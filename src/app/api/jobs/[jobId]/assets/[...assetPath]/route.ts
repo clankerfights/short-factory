@@ -6,7 +6,7 @@ import { jobDirectory } from "../../../../../../lib/job-store";
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ jobId: string; assetPath: string[] }> },
 ) {
   try {
@@ -18,9 +18,27 @@ export async function GET(
     }
 
     const file = await fs.readFile(absolutePath);
+    const type = contentType(absolutePath);
+    const range = parseRange(request.headers.get("range"), file.length);
+    if (range) {
+      const chunk = file.subarray(range.start, range.end + 1);
+      return new Response(chunk, {
+        status: 206,
+        headers: {
+          "accept-ranges": "bytes",
+          "content-length": String(chunk.length),
+          "content-range": `bytes ${range.start}-${range.end}/${file.length}`,
+          "content-type": type,
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     return new Response(file, {
       headers: {
-        "content-type": contentType(absolutePath),
+        "accept-ranges": "bytes",
+        "content-length": String(file.length),
+        "content-type": type,
         "cache-control": "no-store",
       },
     });
@@ -30,6 +48,25 @@ export async function GET(
       { status: 404 },
     );
   }
+}
+
+function parseRange(
+  value: string | null,
+  size: number,
+): { start: number; end: number } | null {
+  if (!value?.startsWith("bytes=") || size <= 0) return null;
+  const [rawStart, rawEnd] = value.slice("bytes=".length).split("-", 2);
+  const start = rawStart ? Number.parseInt(rawStart, 10) : 0;
+  const end = rawEnd ? Number.parseInt(rawEnd, 10) : size - 1;
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end < start
+  ) {
+    return null;
+  }
+  return { start, end: Math.min(end, size - 1) };
 }
 
 function contentType(filePath: string): string {
