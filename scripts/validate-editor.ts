@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { buildNarratorQuoteComposition } from "../src/lib/composition-builder";
+import { chatGameplayStartFrame, highlightedChatReadFrame } from "../src/lib/chat-cue-timing";
 import {
   ensureUniqueCompositionIds,
   normalizeFreezes,
@@ -191,6 +192,58 @@ assert.deepEqual(
     { id: "170-2", outputStartFrame: 2049 },
     { id: "171", outputStartFrame: 2382 },
   ],
+);
+
+const firstVisibleChat = {
+  id: 52,
+  timeStart: 8.389,
+  timeEnd: 16.773,
+};
+const laterHighlightedChat = {
+  id: 55,
+  timeStart: 31.141,
+  timeEnd: 51.682,
+};
+const shortFinalHighlightedChat = {
+  id: 56,
+  timeStart: 51.682,
+  timeEnd: 51.819,
+};
+const firstVisibleChatFrame = chatGameplayStartFrame({
+  message: firstVisibleChat,
+  fps: 30,
+  sourceDurationFrames: 1650,
+});
+assert.equal(firstVisibleChatFrame, 272);
+assert.equal(
+  highlightedChatReadFrame({
+    message: firstVisibleChat,
+    firstChatMessage: firstVisibleChat,
+    firstChatFrame: firstVisibleChatFrame,
+    fps: 30,
+    sourceDurationFrames: 1650,
+  }),
+  272,
+);
+assert.equal(
+  highlightedChatReadFrame({
+    message: laterHighlightedChat,
+    firstChatMessage: firstVisibleChat,
+    firstChatFrame: firstVisibleChatFrame,
+    fps: 30,
+    sourceDurationFrames: 1650,
+  }),
+  982,
+);
+assert.equal(
+  highlightedChatReadFrame({
+    message: shortFinalHighlightedChat,
+    firstChatMessage: firstVisibleChat,
+    firstChatFrame: firstVisibleChatFrame,
+    fps: 30,
+    sourceDurationFrames: 1650,
+  }),
+  1598,
 );
 
 const trimmed = withTrimEdit(composition, { startFrame: 60, endFrame: 210 });
