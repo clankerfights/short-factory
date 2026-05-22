@@ -34,8 +34,8 @@ The plan intentionally avoids full auto-clipping or full auto-posting until the 
 This repo now includes a local web app for the first vertical slice:
 
 1. Paste a Clankerfights clip URL or clip ID.
-2. Fetch `GET /api/clips/:id` from the pasted URL origin. Bare clip IDs use `CLANKERFIGHTS_BASE_URL`.
-3. Normalize highlighted chat into a quote job.
+2. Fetch `GET /api/clips/:id/factory-packet` from the pasted URL origin. Bare clip IDs use `CLANKERFIGHTS_BASE_URL`.
+3. Normalize the packet transcript/highlights into a quote job.
 4. Generate structured edit recipe variants.
 5. Record the replay page in a `1080x1920` Playwright viewport.
 6. Render `narrator_quote_punchline` with Remotion.
@@ -76,4 +76,6 @@ npm run render:recipe -- --job-id <jobId> --variant v1
 npm run check
 ```
 
-The MVP still expects Clankerfights to expose stable factory playback at `/?clip=:id&factory=1`. The recommended shell addition is documented in [Clankerfights Integration](docs/CLANKERFIGHTS_INTEGRATION.md).
+The MVP expects Clankerfights to expose both `GET /api/clips/:id/factory-packet`
+and stable factory playback at `/?clip=:id&factory=1`. The current integration
+contract is documented in [Clankerfights Integration](docs/CLANKERFIGHTS_INTEGRATION.md).

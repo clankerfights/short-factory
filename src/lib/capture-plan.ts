@@ -15,7 +15,7 @@ export const DEFAULT_CHAT_HEIGHT_PCT = 40;
 export const DEFAULT_REPLAY_PLAYBACK_RATE = 2;
 
 export function createPhoneReplayCapturePlan(
-  layoutWidth = DEFAULT_REPLAY_LAYOUT_WIDTH,
+  layoutWidth: number = DEFAULT_REPLAY_LAYOUT_WIDTH,
 ): ClipCapturePlan {
   return {
     id: "phone-fit-replay-v1",
@@ -30,7 +30,8 @@ export function createPhoneReplayCapturePlan(
       autoplay: true,
       playbackRate: DEFAULT_REPLAY_PLAYBACK_RATE,
       waitForReadySignal: true,
-      readinessGlobal: "__CLIP_FACTORY_READY__",
+      readinessGlobal: "window.clankerClip.ready()",
+      playbackApiGlobal: "window.clankerClip",
       preferredPlaySelector: '[data-factory-play="true"]',
     },
     chrome: {

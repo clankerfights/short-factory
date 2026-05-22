@@ -9,6 +9,7 @@ import {
 import type { BaseRecordingTiming, ClipCapturePlan, ClipFactoryPacket } from "./edit-model";
 import { TIKTOK_CANVAS } from "./edit-model";
 import { detectBaseRecordingTiming } from "./base-recording-timing";
+import { parseClipFactoryPacketWire } from "./schemas";
 
 export type RecordClipOptions = {
   playbackUrl: string;
@@ -52,7 +53,7 @@ export async function recordClipViewport(
     if (!factoryPacket) {
       await applyCapturePlan(page, capturePlan);
     }
-    if (!capturePlan.replay.autoplay) {
+    if (capturePlan.replay.autoplay) {
       await tryStartPlayback(page, capturePlan);
     }
     await page.waitForTimeout(options.durationSeconds * 1000);
@@ -100,10 +101,16 @@ async function applyCapturePlan(
 
 async function waitForFactoryPacket(page: Page): Promise<ClipFactoryPacket | null> {
   try {
-    await page.waitForFunction(() => Boolean(window.__CLIP_FACTORY_READY__), undefined, {
-      timeout: 15_000,
+    await page.waitForFunction(
+      () => Boolean(window.clankerClip || window.__CLIP_FACTORY_READY__),
+      undefined,
+      { timeout: 15_000 },
+    );
+    const packet = await page.evaluate(async () => {
+      if (window.clankerClip) return window.clankerClip.ready();
+      return window.__CLIP_FACTORY_PACKET__ ?? null;
     });
-    return await page.evaluate(() => window.__CLIP_FACTORY_PACKET__ ?? null);
+    return packet ? parseClipFactoryPacketWire(packet) : null;
   } catch {
     await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
     return null;
@@ -114,12 +121,15 @@ async function tryStartPlayback(
   page: Page,
   capturePlan: ClipCapturePlan,
 ): Promise<void> {
+  const usedApi = await page.evaluate(() => {
+    if (!window.clankerClip) return false;
+    window.clankerClip.play();
+    return true;
+  });
+  if (usedApi) return;
+
   await page.evaluate((preferredPlaySelector) => {
-    const selectors = [
-      preferredPlaySelector,
-      '[aria-label="Play"]',
-      "video",
-    ];
+    const selectors = [preferredPlaySelector, '[aria-label="Play"]', "video"];
 
     for (const selector of selectors) {
       const element = document.querySelector(selector);
@@ -144,5 +154,14 @@ declare global {
   interface Window {
     __CLIP_FACTORY_READY__?: boolean;
     __CLIP_FACTORY_PACKET__?: ClipFactoryPacket;
+    clankerClip?: {
+      ready: () => Promise<ClipFactoryPacket>;
+      packet: () => ClipFactoryPacket | null;
+      play: () => void;
+      pause: () => void;
+      seek: (seconds: number) => void;
+      duration: () => number;
+      state: () => { playing: boolean; currentSeconds: number; durationSeconds: number };
+    };
   }
 }

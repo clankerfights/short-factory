@@ -1,12 +1,7 @@
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type {
-  ClipFactoryPacket,
-  EditComposition,
-  EditLayer,
-  TtsLayer,
-} from "./edit-model";
+import type { EditComposition, EditLayer, TtsLayer } from "./edit-model";
 import { TIKTOK_CANVAS } from "./edit-model";
 import { mp3DurationSeconds } from "./audio-duration";
 import { botFaceForSpeaker } from "./bot-assets";
@@ -14,8 +9,9 @@ import { chatGameplayStartFrame, highlightedChatReadFrame } from "./chat-cue-tim
 import { outputDurationForTimelineEdits } from "./composition-utils";
 import { planHighlightReadFreezes } from "./highlight-freeze-planner";
 import { jobDirectory } from "./job-store";
+import { parseClipFactoryPacketWire } from "./schemas";
 import { generateOpenAiSpeech } from "./tts";
-import type { EditRecipeVariant, FactoryJob } from "./types";
+import type { ClipFactoryPacketWire, EditRecipeVariant, FactoryJob } from "./types";
 import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
@@ -359,8 +355,11 @@ async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMes
     try {
       const packet = JSON.parse(
         await fs.readFile(job.artifacts.factoryPacketPath, "utf8"),
-      ) as ClipFactoryPacket;
-      if (packet.messages.length > 0) return sortChatMessages(packet.messages);
+      );
+      const parsedPacket = parseClipFactoryPacketWire(packet);
+      if (parsedPacket.messages.length > 0) {
+        return sortChatMessages(parsedPacket.messages.map(packetMessageToTemplate));
+      }
     } catch {
       // Older jobs may not have a usable packet; highlighted chat is the best fallback.
     }
@@ -371,6 +370,21 @@ async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMes
 
 function sortChatMessages<T extends TemplateChatMessage>(messages: readonly T[]): T[] {
   return [...messages].sort((a, b) => a.timeStart - b.timeStart);
+}
+
+function packetMessageToTemplate(
+  message: ClipFactoryPacketWire["messages"][number],
+): TemplateChatMessage {
+  return {
+    id: message.id,
+    speaker: message.speaker,
+    playerId: message.playerId,
+    channel: message.channel,
+    text: message.text,
+    timeStart: message.startSeconds,
+    timeEnd: message.endSeconds,
+    timestamp: message.timestampMs,
+  };
 }
 
 function safeFileName(value: string): string {

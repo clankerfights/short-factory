@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { fetchClipDetail } from "../../../lib/clankerfights";
+import { fetchClipFactoryPacket } from "../../../lib/clankerfights";
 import { createFactoryJob, listFactoryJobs } from "../../../lib/job-store";
-import { normalizeClipDetailToQuoteJob } from "../../../lib/normalize-clip";
+import { normalizeFactoryPacketToQuoteJob } from "../../../lib/normalize-clip";
 import { generateEditRecipe } from "../../../lib/recipe-generator";
 import { createJobRequestSchema } from "../../../lib/schemas";
 import { resolveAutomaticTemplateId } from "../../../lib/template-registry";
@@ -24,10 +24,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = createJobRequestSchema.parse(await request.json());
-    const { detail, source } = await fetchClipDetail(body.clipUrl);
+    const { packet, source } = await fetchClipFactoryPacket(body.clipUrl);
     const selectedTemplateId = resolveAutomaticTemplateId(body.templateId);
-    const provisionalQuoteJob = normalizeClipDetailToQuoteJob({
-      detail,
+    const provisionalQuoteJob = normalizeFactoryPacketToQuoteJob({
+      packet,
       source,
       hookText: body.hookText,
       toneHint: body.toneHint ?? body.finalMessageTone,
