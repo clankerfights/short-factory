@@ -37,6 +37,9 @@ export function normalizeClipInput(input: string, baseUrl = clankerfightsBaseUrl
     clipUrl: clipUrl.toString(),
     playbackUrl: playbackUrl.toString(),
     apiUrl: new URL(`/api/clips/${clipId}`, base).toString(),
+    factoryPacketUrl: new URL(`/api/clips/${clipId}/factory-packet`, base).toString(),
+    transcriptUrl: new URL(`/api/clips/${clipId}/transcript`, base).toString(),
+    captureUrl: new URL(`/api/clips/${clipId}/capture`, base).toString(),
   };
 }
 

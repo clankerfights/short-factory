@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "validate:editor": "tsx scripts/validate-editor.ts",
     "validate:source-timeline-render": "tsx scripts/validate-source-timeline-render.ts",
-    "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render",
+    "validate:factory-packet": "tsx scripts/validate-factory-packet.ts",
+    "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render && npm run validate:factory-packet",
     "record:clip": "tsx scripts/record-clip.ts",
     "render:raw": "tsx scripts/render-raw.ts",
     "render:recipe": "tsx scripts/render-recipe.ts"

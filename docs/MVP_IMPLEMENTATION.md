@@ -5,8 +5,8 @@
 The first build is a local control surface plus pipeline boundaries:
 
 - `src/app/page.tsx`: paste URL, inspect quote job, trigger record/render.
-- `src/app/api/jobs`: ingest clip detail and create a persisted job.
-- `src/lib/normalize-clip.ts`: converts `ClipDetailWire` into the quote-job shape from the plan.
+- `src/app/api/jobs`: ingest the Clankerfights factory packet and create a persisted job.
+- `src/lib/normalize-clip.ts`: converts `ClipFactoryPacketWire` into the quote-job shape from the plan.
 - `src/lib/edit-model.ts`: shared raw-material, capture-plan, and edit-layer model.
 - `src/lib/capture-plan.ts`: phone-safe replay capture plan.
 - `src/lib/recipe-generator.ts`: deterministic edit recipe generator until an LLM packaging prompt is added.
@@ -18,9 +18,9 @@ The first build is a local control surface plus pipeline boundaries:
 
 ## Why API First
 
-The Clankerfights docs identify `GET /api/clips/:id` as the stable source for `ClipDetailWire`.
+The Clankerfights docs identify `GET /api/clips/:id/factory-packet` as the stable source for `ClipFactoryPacketWire`.
 This repo should not connect directly to the database unless the API cannot supply a field the renderer needs.
-The source of truth for highlighted quote selection is `clip.highlightedChatIds`.
+The source of truth for highlighted quote selection is `packet.highlightedMessages`.
 
 ## Clankerfights Shell Contract
 
@@ -36,8 +36,8 @@ Factory mode should:
 - size itself cleanly in a phone-like CSS viewport that records to `1080x1920`;
 - start at `trimStartMs`;
 - expose `window.__CLIP_FACTORY_READY__ = true` after replay assets and chat have loaded;
-- expose `window.__CLIP_FACTORY_PACKET__` with projection, visible chat, highlighted messages, capture plan, and safe areas;
-- provide an obvious play button via `data-factory-play="true"` if autoplay is blocked.
+- expose `window.__CLIP_FACTORY_PACKET__` as `ClipFactoryPacketWire`;
+- expose `window.clankerClip.ready()`, `packet()`, `play()`, `pause()`, `seek(seconds)`, `duration()`, and `state()`.
 
 ## Viral Packaging Defaults
 
@@ -53,7 +53,7 @@ The quote factory maps that to:
 
 ## Next Build Steps
 
-1. Use the saved `factory-packet.json` to drive quote timing and safe-area-aware edit choices.
+1. Use `factory-packet.json` safe areas and edit manifest to drive template choices.
 2. Replace deterministic recipes with an LLM packaging call that returns the existing JSON shape.
 3. Add TTS and word/phrase timing artifacts.
 4. Replace placeholder circular model badges with registry-backed NPC head assets.

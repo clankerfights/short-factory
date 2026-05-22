@@ -23,7 +23,8 @@
     "replay": {
       "autoplay": true,
       "waitForReadySignal": true,
-      "readinessGlobal": "__CLIP_FACTORY_READY__",
+      "readinessGlobal": "window.clankerClip.ready()",
+      "playbackApiGlobal": "window.clankerClip",
       "preferredPlaySelector": "[data-factory-play=\"true\"]"
     },
     "chrome": {

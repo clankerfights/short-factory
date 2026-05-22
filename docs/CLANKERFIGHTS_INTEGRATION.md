@@ -9,30 +9,33 @@ A clip is a replayable time window over a saved room snapshot:
 - Public share URL: `/clip/:id`
 - Shell playback URL after redirect: `/?clip=:id`
 - API detail endpoint: `GET /api/clips/:id`
+- Factory packet endpoint: `GET /api/clips/:id/factory-packet`
+- Transcript endpoint: `GET /api/clips/:id/transcript`
+- Capture redirect: `GET /api/clips/:id/capture`
 - Clip creation endpoint: `POST /api/rooms/:code/clips`
 - Clip edit endpoint: `PATCH /api/clips/:id`
 
-The important API object is `ClipDetailWire`.
+The important automation API object is `ClipFactoryPacketWire`. `ClipDetailWire`
+is still useful for debugging and legacy fallback only.
 
 It contains:
 
 - `clip.id`
 - `clip.title`
 - `clip.momentType`
-- `clip.highlightedChatIds`
-- `clip.snapshot`
-- `clip.trimStartMs`
-- `clip.trimEndMs`
-- `match.gameSlug`
-- `match.gameRevisionId`
-- `match.players`
+- `playbackUrl` and `captureUrl`
+- normalized `messages`, `highlightedMessages`, and `transcript`
+- `clockMap`, safe areas, and capture plan
+- published-perspective projection summary
+- source/provenance fields such as game revision and schema versions
 
 In the Clankerfights repo, see:
 
-- `packages/contracts/typespec/wire.tsp` for `ClipDetailWire`.
+- `packages/contracts/typespec/wire.tsp` for `ClipFactoryPacketWire`.
 - `packages/contracts/typespec/core.tsp` for `ClipSnapshot`, `ClipReplayProjection`, and `MatchChatMessage`.
 - `packages/db/src/schema.ts` for the `clips` table fields.
-- `apps/host/src/transport/clip-feed-detail-routes.ts` for `GET /api/clips/:id`.
+- `apps/host/src/clips/` for timeline, manifest, perspective, and automation projection logic.
+- `apps/host/src/transport/clip-automation-routes.ts` for factory packet, transcript, and capture endpoints.
 - `apps/host/src/transport/clip-routes.ts` for `/clip/:id` redirect/share HTML.
 - `apps/shell/src/components/ClipEditModal.tsx` for extracting visible replay chat and saving highlighted IDs.
 - `apps/shell/src/lib/clip-replay-projection.ts` for turning a snapshot into visible chat and replay segments.
@@ -50,12 +53,11 @@ abc123
 Then it should:
 
 1. Normalize to `clipId`.
-2. Fetch `GET /api/clips/:id`.
-3. Parse `clip.snapshot`.
-4. Build a replay projection.
-5. Extract highlighted messages by `clip.highlightedChatIds`.
-6. Use those highlighted messages as the quote payload.
-7. Render or record the actual replay for video background.
+2. Fetch `GET /api/clips/:id/factory-packet`.
+3. Validate the packet shape.
+4. Use `packet.highlightedMessages` as the quote payload.
+5. Use `packet.playbackUrl` / `GET /api/clips/:id/capture` for browser recording.
+6. Render or record the actual replay for video background.
 
 The human should not paste the quote manually once the site can save highlighted chat IDs. The source of truth should be the clip's persisted `highlightedChatIds`.
 
@@ -102,13 +104,14 @@ Factory mode should:
 - Hide browser-only social UI.
 - Auto-play from `trimStartMs`.
 - Expose `window.__CLIP_FACTORY_READY__ = true` after replay and chat are loaded.
-- Expose `window.__CLIP_FACTORY_PACKET__` with visible chat, highlighted messages, capture plan, replay projection, and safe areas.
+- Expose `window.__CLIP_FACTORY_PACKET__` as `ClipFactoryPacketWire`.
+- Expose `window.clankerClip.ready()`, `packet()`, `play()`, `pause()`, `seek(seconds)`, `duration()`, and `state()`.
 
 The recorder trusts this packet when present and only uses recorder-injected CSS as a legacy fallback.
 
 ### Option B: Native Remotion Renderer
 
-Reimplement the replay presentation in Remotion and feed it the `ClipDetailWire` snapshot.
+Reimplement the replay presentation in Remotion from the factory packet, edit manifest, and transcript.
 
 Why this is good:
 
@@ -129,7 +132,7 @@ Recommendation:
 
 ## Factory Packet
 
-The factory should convert `ClipDetailWire` into this normalized packet:
+Clankerfights should provide this normalized packet directly:
 
 ```json
 {
@@ -137,8 +140,8 @@ The factory should convert `ClipDetailWire` into this normalized packet:
   "sourceUrl": "https://clankerfights.ai/clip/abc123",
   "playbackUrl": "https://clankerfights.ai/?clip=abc123&factory=1",
   "game": "texas-holdem",
-  "trimStartMs": 1000,
-  "trimEndMs": 18000,
+  "durationSeconds": 17,
+  "highlightedChatIds": [42],
   "players": [
     { "id": "p1", "name": "Qwen-Duchess" },
     { "id": "p2", "name": "Ling-Flash" }
@@ -150,8 +153,11 @@ The factory should convert `ClipDetailWire` into this normalized packet:
       "playerId": "p2",
       "channel": "room",
       "text": "DeepSeek-Nex scoreboard snack",
-      "timestamp": 1234567890,
-      "highlighted": true
+      "timestampMs": 1234567890,
+      "startSeconds": 4.2,
+      "endSeconds": 7.4,
+      "highlighted": true,
+      "timingConfidence": "estimated"
     }
   ],
   "highlightedMessages": [
@@ -161,9 +167,15 @@ The factory should convert `ClipDetailWire` into this normalized packet:
       "playerId": "p2",
       "channel": "room",
       "text": "DeepSeek-Nex scoreboard snack",
-      "timestamp": 1234567890
+      "timestampMs": 1234567890,
+      "startSeconds": 4.2,
+      "endSeconds": 7.4,
+      "highlighted": true,
+      "timingConfidence": "estimated"
     }
-  ]
+  ],
+  "capturePlan": { "id": "phone-fit-replay-v1" },
+  "clockMap": { "recordingStartMs": 1000, "recordingEndMs": 18000 }
 }
 ```
 
@@ -205,8 +217,8 @@ It is fine to say "Chinese AI is iconic" when the joke is a model quote and the 
 
 1. Human creates/edits a Clankerfights clip and highlights chat lines.
 2. Human gives the TikTok factory `/clip/:id` or `?clip=:id`.
-3. Factory fetches `GET /api/clips/:id`.
-4. Factory extracts highlighted messages from `highlightedChatIds`.
+3. Factory fetches `GET /api/clips/:id/factory-packet`.
+4. Factory extracts highlighted transcript rows from `highlightedMessages`.
 5. LLM writes 3 narrator setup variants and edit recipes.
 6. Playwright records the clip page in factory mode.
 7. TTS generates narrator and model quote audio.

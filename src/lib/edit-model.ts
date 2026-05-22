@@ -111,7 +111,8 @@ export type ClipCapturePlan = {
     autoplay: boolean;
     playbackRate: number;
     waitForReadySignal: boolean;
-    readinessGlobal: "__CLIP_FACTORY_READY__";
+    readinessGlobal: "__CLIP_FACTORY_READY__" | "window.clankerClip.ready()";
+    playbackApiGlobal?: string;
     preferredPlaySelector: string;
   };
   chrome: {
@@ -119,6 +120,19 @@ export type ClipCapturePlan = {
     hidePointerCursor: boolean;
     pageBackground: string;
   };
+};
+
+export type ClipFactoryTranscriptMessage = {
+  id: number;
+  speaker: string;
+  playerId: string;
+  channel: string;
+  text: string;
+  timestampMs: number;
+  startSeconds: number;
+  endSeconds: number;
+  highlighted: boolean;
+  timingConfidence: "exact" | "estimated";
 };
 
 export type ClipFactoryPacket = {
@@ -135,44 +149,28 @@ export type ClipFactoryPacket = {
   trimEndMs: number | null;
   highlightedChatIds: readonly number[];
   players: Array<{ id: string; name: string }>;
-  messages: ReadonlyArray<{
-    id: number;
-    speaker: string;
-    playerId: string;
-    channel: string;
-    text: string;
-    timestamp: number;
-    timeStart: number;
-    timeEnd: number;
-    highlighted: boolean;
-  }>;
-  highlightedMessages: ReadonlyArray<{
-    id: number;
-    speaker: string;
-    playerId: string;
-    channel: string;
-    text: string;
-    timestamp: number;
-    timeStart: number;
-    timeEnd: number;
-    highlighted: boolean;
-  }>;
+  messages: ReadonlyArray<ClipFactoryTranscriptMessage>;
+  highlightedMessages: ReadonlyArray<ClipFactoryTranscriptMessage>;
+  transcript: ReadonlyArray<ClipFactoryTranscriptMessage>;
   capturePlan: {
-    id: "phone-fit-replay-v1";
+    id: string;
     viewport: Size;
     replayLayoutWidth: number;
     chatHeightPct: number;
-    readinessSignal: "window.__CLIP_FACTORY_READY__";
-    playbackTrigger: string;
+    readinessSignal: string;
+    playbackApiGlobal: string;
     autoplay: boolean;
     startAtTrimStart: boolean;
   };
-  projection: unknown;
-  visibleChat: readonly unknown[];
+  projectionSummary: unknown;
   safeAreas: {
     viewport: Size;
     replay: Box;
+    captions: Box;
   };
+  clockMap: unknown;
+  editManifest: unknown;
+  manifest?: unknown;
 };
 
 export type ClipRawMaterials = {
@@ -209,6 +207,7 @@ export type ClipRawMaterials = {
     timestamp: number;
   }>;
   capturePlan: ClipCapturePlan;
+  factoryPacket?: ClipFactoryPacket;
   recommendedFactoryMode: {
     queryParam: "factory";
     capabilities: string[];

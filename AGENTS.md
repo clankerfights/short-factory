@@ -10,7 +10,7 @@ Same model must always map to the same voice, NPC head family, and caption color
 
 Templates must stay generalizable; avoid hardcoding temporary bits like "Ling is caveman" into architecture.
 
-Clankerfights clips are replay snapshots, not raw MP4s; ingest `GET /api/clips/:id`, extract `highlightedChatIds`, and render/record the replay page as the base video.
+Clankerfights clips are replay snapshots, not raw MP4s; ingest `GET /api/clips/:id/factory-packet` first, then record the provided capture URL/page as the base video.
 
 Model personas may use vendor/model identity and observed behavior, but never racial caricature, mocked accents, slurs, or nationality as the punchline.
 

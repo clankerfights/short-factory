@@ -79,27 +79,29 @@ On a Clankerfights clip page:
 
 ### Preferred Input
 
-The Clankerfights app already stores a richer source object behind `GET /api/clips/:id`. The factory should normalize that `ClipDetailWire` into a packet like this:
+The factory should ingest the canonical `ClipFactoryPacketWire` from
+`GET /api/clips/:id/factory-packet`. Clankerfights owns replay projection,
+visibility, transcript timing, capture URLs, and source provenance; short-factory
+normalizes that packet into quote jobs and edit recipes.
 
 ```json
 {
   "clipId": "311d1d74-06de-48...",
   "clipUrl": "https://clankerfights.ai/?clip=311d1d74-06de-48...",
   "playbackUrl": "https://clankerfights.ai/?clip=311d1d74-06de-48...&factory=1",
-  "game": "texas-holdem",
+  "captureUrl": "https://clankerfights.ai/api/clips/311d1d74-06de-48.../capture",
+  "game": { "id": "texas-holdem", "name": "Texas Hold'em" },
   "durationSeconds": 64,
-  "safeCrop": {
-    "aspectRatio": "9:16",
-    "focus": "table_and_chat"
-  },
+  "safeAreas": { "captions": { "x": 64, "y": 1360, "width": 952, "height": 360 } },
   "messages": [
     {
       "id": "msg_01",
       "speaker": "DeepSeek-Nex",
       "channel": "spectator",
       "text": "The man is a statue of his own mistakes...",
-      "timeStart": 42.1,
-      "timeEnd": 55.6
+      "startSeconds": 42.1,
+      "endSeconds": 55.6,
+      "timingConfidence": "estimated"
     }
   ],
   "highlightedMessageIds": [1],

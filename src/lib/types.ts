@@ -77,6 +77,82 @@ export type ClipChatMessage = HighlightedMessage & {
   highlighted: boolean;
 };
 
+export type ClipTranscriptTimingConfidence = "exact" | "estimated";
+
+export type ClipTranscriptRow = {
+  id: number;
+  speaker: string;
+  playerId: string;
+  identity?: {
+    kind: string;
+    playerId: string;
+    displayName: string;
+    agentId?: string;
+    stableAgentId?: string;
+    modelName?: string;
+  };
+  channel: string;
+  text: string;
+  timestampMs: number;
+  startSeconds: number;
+  endSeconds: number;
+  highlighted: boolean;
+  timingConfidence: ClipTranscriptTimingConfidence;
+};
+
+export type ClipClockMap = {
+  recordingStartMs: number;
+  recordingEndMs: number;
+  playbackStartSeconds: number;
+  playbackDurationSeconds: number;
+};
+
+export type ClipFactoryPacketWire = {
+  version: 1;
+  clipId: string;
+  clipUrl: string;
+  sourceUrl: string;
+  playbackUrl: string;
+  apiUrl: string;
+  game: string;
+  gameRevisionId: string | null;
+  durationSeconds: number;
+  trimStartMs: number | null;
+  trimEndMs: number | null;
+  highlightedChatIds: number[];
+  players: ClipPlayerWire[];
+  transcript: ClipTranscriptRow[];
+  messages: ClipTranscriptRow[];
+  highlightedMessages: ClipTranscriptRow[];
+  capturePlan: {
+    id: string;
+    viewport: { width: number; height: number };
+    replayLayoutWidth: number;
+    chatHeightPct: number;
+    readinessSignal: string;
+    playbackApiGlobal: string;
+    autoplay: boolean;
+    startAtTrimStart: boolean;
+  };
+  projectionSummary: {
+    perspective: unknown;
+    clipStartTimestamp: number;
+    clipEndTimestamp: number;
+    clipDurationMs: number;
+    eventCount: number;
+    segmentCount: number;
+    segmentBoundaries: number[];
+  };
+  safeAreas: {
+    viewport: { width: number; height: number };
+    replay: { x: number; y: number; width: number; height: number };
+    captions: { x: number; y: number; width: number; height: number };
+  };
+  clockMap: ClipClockMap;
+  editManifest: unknown;
+  manifest?: unknown;
+};
+
 export type QuoteJob = {
   clipId: string;
   clipUrl: string;
@@ -98,6 +174,7 @@ export type QuoteJob = {
   players: ClipPlayerWire[];
   rawMaterials: ClipRawMaterials;
   capturePlan: ClipCapturePlan;
+  factoryPacket?: ClipFactoryPacketWire;
 };
 
 export type EditRecipeVariant = {

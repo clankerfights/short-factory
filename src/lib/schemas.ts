@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ClipFactoryPacketWire } from "./types";
 
 export const createJobRequestSchema = z.object({
   clipUrl: z.string().min(1, "Paste a clip URL or clip ID."),
@@ -16,6 +17,101 @@ export const recordJobRequestSchema = z.object({
 export const renderJobRequestSchema = z.object({
   variantId: z.string().min(1).default("v1"),
 });
+
+const finiteNumberSchema = z.number().finite();
+
+const clipPacketSizeSchema = z.object({
+  width: finiteNumberSchema.positive(),
+  height: finiteNumberSchema.positive(),
+});
+
+const clipPacketBoxSchema = clipPacketSizeSchema.extend({
+  x: finiteNumberSchema,
+  y: finiteNumberSchema,
+});
+
+const clipTranscriptRowSchema = z.object({
+  id: z.number().int(),
+  speaker: z.string().min(1),
+  playerId: z.string().min(1),
+  identity: z
+    .object({
+      kind: z.string().min(1),
+      playerId: z.string().min(1),
+      displayName: z.string().min(1),
+      agentId: z.string().optional(),
+      stableAgentId: z.string().optional(),
+      modelName: z.string().optional(),
+    })
+    .optional(),
+  channel: z.string().min(1),
+  text: z.string(),
+  timestampMs: finiteNumberSchema,
+  startSeconds: finiteNumberSchema.min(0),
+  endSeconds: finiteNumberSchema.min(0),
+  highlighted: z.boolean(),
+  timingConfidence: z.enum(["exact", "estimated"]),
+});
+
+const clipClockMapSchema = z.object({
+  recordingStartMs: finiteNumberSchema,
+  recordingEndMs: finiteNumberSchema,
+  playbackStartSeconds: finiteNumberSchema.min(0),
+  playbackDurationSeconds: finiteNumberSchema.positive(),
+});
+
+export const clipFactoryPacketWireSchema: z.ZodType<ClipFactoryPacketWire> =
+  z.object({
+    version: z.literal(1),
+    clipId: z.string().min(1),
+    clipUrl: z.string().url(),
+    sourceUrl: z.string().url(),
+    playbackUrl: z.string().url(),
+    apiUrl: z.string().url(),
+    game: z.string().min(1),
+    gameRevisionId: z.string().nullable(),
+    durationSeconds: finiteNumberSchema.positive(),
+    trimStartMs: finiteNumberSchema.nullable(),
+    trimEndMs: finiteNumberSchema.nullable(),
+    highlightedChatIds: z.array(z.number().int()),
+    players: z.array(z.object({ id: z.string().min(1), name: z.string() })),
+    transcript: z.array(clipTranscriptRowSchema),
+    messages: z.array(clipTranscriptRowSchema),
+    highlightedMessages: z.array(clipTranscriptRowSchema),
+    capturePlan: z.object({
+      id: z.string().min(1),
+      viewport: clipPacketSizeSchema,
+      replayLayoutWidth: finiteNumberSchema.positive(),
+      chatHeightPct: finiteNumberSchema.min(0).max(100),
+      readinessSignal: z.string().min(1),
+      playbackApiGlobal: z.string().min(1),
+      autoplay: z.boolean(),
+      startAtTrimStart: z.boolean(),
+    }),
+    projectionSummary: z.object({
+      perspective: z.unknown(),
+      clipStartTimestamp: finiteNumberSchema,
+      clipEndTimestamp: finiteNumberSchema,
+      clipDurationMs: finiteNumberSchema.positive(),
+      eventCount: z.number().int().min(0),
+      segmentCount: z.number().int().min(0),
+      segmentBoundaries: z.array(finiteNumberSchema.min(0)),
+    }),
+    safeAreas: z.object({
+      viewport: clipPacketSizeSchema,
+      replay: clipPacketBoxSchema,
+      captions: clipPacketBoxSchema,
+    }),
+    clockMap: clipClockMapSchema,
+    editManifest: z.unknown(),
+    manifest: z.unknown().optional(),
+  });
+
+export function parseClipFactoryPacketWire(
+  value: unknown,
+): ClipFactoryPacketWire {
+  return clipFactoryPacketWireSchema.parse(value);
+}
 
 const sizeSchema = z.object({
   width: z.number().positive(),

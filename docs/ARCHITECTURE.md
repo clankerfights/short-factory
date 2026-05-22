@@ -4,7 +4,7 @@
 
 The factory should not be a pile of one-off video edits. It should be a small compiler:
 
-1. Clankerfights provides raw replay materials.
+1. Clankerfights provides a stable factory packet over replay materials.
 2. The factory normalizes those materials into a quote job.
 3. The packager creates edit recipes.
 4. A renderer interprets generic edit layers.
@@ -13,17 +13,17 @@ The highest-value boundary is between Clankerfights and the factory. Clankerfigh
 
 ## Clankerfights Raw Materials
 
-The factory should ingest `GET /api/clips/:id` and preserve these primitives:
+The factory should ingest `GET /api/clips/:id/factory-packet` and preserve
+these primitives:
 
-- `clip.id`
-- `clip.snapshot`
-- `clip.trimStartMs`
-- `clip.trimEndMs`
-- `clip.highlightedChatIds`
-- `match.gameSlug`
-- `match.gameRevisionId`
-- `match.players`
-- visible chat messages with speaker names and timestamps
+- `clipId`
+- `playbackUrl`
+- `highlightedChatIds`
+- `game`
+- `gameRevisionId`
+- `players`
+- transcript rows with speaker names, timestamps, playback seconds, and timing confidence
+- capture plan, safe areas, clock map, and edit manifest
 
 The factory normalizes those into `ClipRawMaterials` in `src/lib/edit-model.ts`.
 
@@ -42,9 +42,9 @@ The current capture plan is `phone-fit-replay-v1`:
 - records a mobile CSS viewport, currently `540x960`, into a `1080x1920` video;
 - opens Clankerfights with `factory=1`, `layoutWidth=540`, `viewport=540x960`, and `chatHeightPct=40`;
 - lets Clankerfights use its normal responsive mobile replay layout;
-- waits for `window.__CLIP_FACTORY_READY__`;
+- waits for `window.clankerClip.ready()` with legacy `window.__CLIP_FACTORY_READY__` fallback;
 - saves `window.__CLIP_FACTORY_PACKET__` beside the base recording when available;
-- starts playback through `data-factory-play="true"` when autoplay is blocked.
+- starts playback through `window.clankerClip.play()` with selector fallback when autoplay is blocked.
 
 Clankerfights PR 776 moved this from recorder-owned DOM surgery to shell-owned factory mode. The recorder now only injects legacy fallback CSS if the upstream factory packet is missing.
 
@@ -62,7 +62,8 @@ Clankerfights factory-mode query/config knobs:
 Globals from the Clankerfights page:
 
 - `window.__CLIP_FACTORY_READY__ = true`
-- `window.__CLIP_FACTORY_PACKET__ = { projection, visibleChat, highlightedMessages, capturePlan, safeAreas }`
+- `window.__CLIP_FACTORY_PACKET__ = ClipFactoryPacketWire`
+- `window.clankerClip = { ready, packet, play, pause, seek, duration, state }`
 
 ## Edit Model
 

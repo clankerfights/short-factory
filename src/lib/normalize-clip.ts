@@ -4,6 +4,7 @@ import type {
   ClipChatMessage,
   ClipSnapshot,
   ClipSnapshotEvent,
+  ClipFactoryPacketWire,
   HighlightedMessage,
   QuoteJob,
 } from "./types";
@@ -14,7 +15,88 @@ type SourceUrls = {
   clipId: string;
   clipUrl: string;
   playbackUrl: string;
+  factoryPacketUrl?: string;
+  captureUrl?: string;
 };
+
+export function normalizeFactoryPacketToQuoteJob(args: {
+  packet: ClipFactoryPacketWire;
+  source: SourceUrls;
+  hookText?: string;
+  toneHint?: string;
+  finalMessageTone?: string;
+  finalMessageVoiceInstructions?: string;
+  selectedTemplateId?: string;
+  clipPlaybackSpeed?: number;
+}): QuoteJob {
+  const {
+    packet,
+    source,
+    hookText,
+    toneHint,
+    finalMessageTone,
+    finalMessageVoiceInstructions,
+    selectedTemplateId,
+    clipPlaybackSpeed,
+  } = args;
+  const messages = packet.messages.map(packetMessageToClipChatMessage);
+  const highlightedMessages = packet.highlightedMessages.map(
+    packetMessageToHighlightedMessage,
+  );
+
+  if (highlightedMessages.length === 0) {
+    throw new Error(
+      "This clip has no highlighted chat messages in the factory packet. Highlight a quote in Clankerfights first.",
+    );
+  }
+
+  const speaker = mostCommon(highlightedMessages.map((message) => message.speaker));
+  const durationSeconds = Math.max(1, Math.round(packet.durationSeconds));
+  const trimStartMs = 0;
+  const trimEndMs = Math.round(packet.durationSeconds * 1000);
+  const capturePlan = capturePlanFromFactoryPacket(packet);
+  const rawMaterials = createClipRawMaterials({
+    source: {
+      ...source,
+      playbackUrl: packet.playbackUrl,
+      clipUrl: packet.clipUrl,
+    },
+    game: packet.game,
+    trimStartMs,
+    trimEndMs,
+    durationSeconds,
+    messages,
+    highlightedChatIds: packet.highlightedChatIds,
+    highlightedMessages,
+    players: packet.players,
+    capturePlan,
+    factoryPacket: packet,
+  });
+
+  return {
+    clipId: packet.clipId,
+    clipUrl: packet.clipUrl,
+    playbackUrl: packet.playbackUrl,
+    game: packet.game,
+    speaker,
+    ...(hookText ? { hookText } : {}),
+    ...(toneHint ? { toneHint } : {}),
+    ...(finalMessageTone ? { finalMessageTone } : {}),
+    ...(finalMessageVoiceInstructions ? { finalMessageVoiceInstructions } : {}),
+    ...(selectedTemplateId ? { selectedTemplateId } : {}),
+    ...(clipPlaybackSpeed ? { clipPlaybackSpeed } : {}),
+    trimStartMs,
+    trimEndMs,
+    durationSeconds,
+    messages,
+    highlightedChatIds: packet.highlightedChatIds,
+    highlightedMessages,
+    players: packet.players,
+    rawMaterials,
+    capturePlan,
+    factoryPacket: packet,
+  };
+}
 
 export function normalizeClipDetailToQuoteJob(args: {
   detail: ClipDetailWire;
@@ -123,6 +205,7 @@ function createClipRawMaterials(args: {
   highlightedMessages: HighlightedMessage[];
   players: ClipPlayerWire[];
   capturePlan: ClipRawMaterials["capturePlan"];
+  factoryPacket?: ClipFactoryPacketWire;
 }): ClipRawMaterials {
   return {
     clipId: args.source.clipId,
@@ -139,6 +222,7 @@ function createClipRawMaterials(args: {
     highlightedMessages: args.highlightedMessages,
     players: args.players,
     capturePlan: args.capturePlan,
+    ...(args.factoryPacket ? { factoryPacket: args.factoryPacket } : {}),
     recommendedFactoryMode: {
       queryParam: "factory",
       capabilities: [
@@ -148,6 +232,59 @@ function createClipRawMaterials(args: {
         "optional playback chrome hiding",
         "highlighted chat metadata export",
       ],
+    },
+  };
+}
+
+function packetMessageToClipChatMessage(
+  message: ClipFactoryPacketWire["messages"][number],
+): ClipChatMessage {
+  return {
+    id: message.id,
+    speaker: message.speaker,
+    playerId: message.playerId,
+    channel: message.channel,
+    text: message.text,
+    timeStart: message.startSeconds,
+    timeEnd: message.endSeconds,
+    timestamp: message.timestampMs,
+    highlighted: message.highlighted,
+  };
+}
+
+function packetMessageToHighlightedMessage(
+  message: ClipFactoryPacketWire["highlightedMessages"][number],
+): HighlightedMessage {
+  return {
+    id: message.id,
+    speaker: message.speaker,
+    playerId: message.playerId,
+    channel: message.channel,
+    text: message.text,
+    timeStart: message.startSeconds,
+    timeEnd: message.endSeconds,
+    timestamp: message.timestampMs,
+  };
+}
+
+function capturePlanFromFactoryPacket(
+  packet: ClipFactoryPacketWire,
+): ClipRawMaterials["capturePlan"] {
+  const fallbackPlan = createPhoneReplayCapturePlan(
+    packet.capturePlan.replayLayoutWidth,
+  );
+  return {
+    ...fallbackPlan,
+    viewport: packet.capturePlan.viewport,
+    sourceLayout: {
+      ...fallbackPlan.sourceLayout,
+      width: packet.capturePlan.replayLayoutWidth,
+    },
+    replay: {
+      ...fallbackPlan.replay,
+      autoplay: packet.capturePlan.autoplay,
+      readinessGlobal: "window.clankerClip.ready()",
+      playbackApiGlobal: packet.capturePlan.playbackApiGlobal,
     },
   };
 }
