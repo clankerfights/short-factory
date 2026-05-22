@@ -10,6 +10,7 @@ import type {
 import { TIKTOK_CANVAS } from "./edit-model";
 import { mp3DurationSeconds } from "./audio-duration";
 import { botFaceForSpeaker } from "./bot-assets";
+import { chatGameplayStartFrame, highlightedChatReadFrame } from "./chat-cue-timing";
 import { outputDurationForTimelineEdits } from "./composition-utils";
 import { planHighlightReadFreezes } from "./highlight-freeze-planner";
 import { jobDirectory } from "./job-store";
@@ -19,11 +20,10 @@ import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
 export const DEFAULT_TEMPLATE1_NAME = "Default Template1";
-export const DEFAULT_TEMPLATE1_VERSION = 6;
+export const DEFAULT_TEMPLATE1_VERSION = 7;
 
 const DEFAULT_TEMPLATE1_TIMING = {
   outroFrames: TIKTOK_CANVAS.fps,
-  highlightVisibilitySettleFrames: Math.round(TIKTOK_CANVAS.fps * 0.65),
   gameplaySpeed: 2,
 } as const;
 
@@ -53,12 +53,23 @@ export async function applyDefaultTemplate1(
     (a, b) => a.timeStart - b.timeStart,
   );
   const allChatMessages = await chatMessagesForTemplate(job);
+  const firstChatMessage = allChatMessages[0];
   const firstChatFrame =
-    allChatMessages[0] !== undefined
-      ? chatVisibleSourceFrame(allChatMessages[0], fps, rawSourceDuration)
+    firstChatMessage !== undefined
+      ? chatGameplayStartFrame({
+          message: firstChatMessage,
+          fps,
+          sourceDurationFrames: rawSourceDuration,
+        })
       : 0;
   const highlightedFrames = highlighted.map((message) =>
-    chatVisibleSourceFrame(message, fps, rawSourceDuration),
+    highlightedChatReadFrame({
+      message,
+      firstChatMessage,
+      firstChatFrame,
+      fps,
+      sourceDurationFrames: rawSourceDuration,
+    }),
   );
   const gameplayStartFrame = firstChatFrame;
   const gameplaySourceDuration = rawSourceDuration - gameplayStartFrame;
@@ -329,10 +340,6 @@ function faceBoxForIndex(index: number) {
   };
 }
 
-function clampFrame(frame: number, duration: number): number {
-  return Math.max(0, Math.min(duration - 1, frame));
-}
-
 type TemplateChatMessage = {
   id: number;
   speaker: string;
@@ -364,19 +371,6 @@ async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMes
 
 function sortChatMessages<T extends TemplateChatMessage>(messages: readonly T[]): T[] {
   return [...messages].sort((a, b) => a.timeStart - b.timeStart);
-}
-
-function chatVisibleSourceFrame(
-  message: TemplateChatMessage,
-  fps: number,
-  sourceDuration: number,
-): number {
-  const startFrame = Math.round(message.timeStart * fps);
-  const settledFrame = startFrame + DEFAULT_TEMPLATE1_TIMING.highlightVisibilitySettleFrames;
-  const endFrame = Math.round(message.timeEnd * fps);
-  const latestFrameBeforeNextMessage =
-    endFrame > startFrame ? Math.max(startFrame, endFrame - 1) : settledFrame;
-  return clampFrame(Math.min(settledFrame, latestFrameBeforeNextMessage), sourceDuration);
 }
 
 function safeFileName(value: string): string {
