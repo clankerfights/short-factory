@@ -39,9 +39,11 @@ export function normalizeFactoryPacketToQuoteJob(args: {
     selectedTemplateId,
     clipPlaybackSpeed,
   } = args;
-  const messages = packet.messages.map(packetMessageToClipChatMessage);
-  const highlightedMessages = packet.highlightedMessages.map(
-    packetMessageToHighlightedMessage,
+  const messages = packet.messages.map((message) =>
+    packetMessageToClipChatMessage(packet, message),
+  );
+  const highlightedMessages = packet.highlightedMessages.map((message) =>
+    packetMessageToHighlightedMessage(packet, message),
   );
 
   if (highlightedMessages.length === 0) {
@@ -236,35 +238,109 @@ function createClipRawMaterials(args: {
   };
 }
 
+export function packetMessageClipTiming(
+  packet: ClipFactoryPacketWire,
+  message: Pick<
+    ClipFactoryPacketWire["messages"][number],
+    "timestampMs" | "startSeconds" | "endSeconds"
+  >,
+): { timeStart: number; timeEnd: number } {
+  const clockOffset = inferPacketTimingOffset(packet, message);
+  const clipDuration =
+    finitePositive(packet.clockMap.playbackDurationSeconds) ??
+    finitePositive(packet.durationSeconds) ??
+    Number.POSITIVE_INFINITY;
+  const timeStart = clampSeconds(message.startSeconds - clockOffset, clipDuration);
+  const timeEnd = clampSeconds(message.endSeconds - clockOffset, clipDuration);
+  return {
+    timeStart,
+    timeEnd: Math.max(timeStart, timeEnd),
+  };
+}
+
 function packetMessageToClipChatMessage(
+  packet: ClipFactoryPacketWire,
   message: ClipFactoryPacketWire["messages"][number],
 ): ClipChatMessage {
+  const timing = packetMessageClipTiming(packet, message);
   return {
     id: message.id,
     speaker: message.speaker,
     playerId: message.playerId,
     channel: message.channel,
     text: message.text,
-    timeStart: message.startSeconds,
-    timeEnd: message.endSeconds,
+    timeStart: timing.timeStart,
+    timeEnd: timing.timeEnd,
     timestamp: message.timestampMs,
     highlighted: message.highlighted,
   };
 }
 
 function packetMessageToHighlightedMessage(
+  packet: ClipFactoryPacketWire,
   message: ClipFactoryPacketWire["highlightedMessages"][number],
 ): HighlightedMessage {
+  const timing = packetMessageClipTiming(packet, message);
   return {
     id: message.id,
     speaker: message.speaker,
     playerId: message.playerId,
     channel: message.channel,
     text: message.text,
-    timeStart: message.startSeconds,
-    timeEnd: message.endSeconds,
+    timeStart: timing.timeStart,
+    timeEnd: timing.timeEnd,
     timestamp: message.timestampMs,
   };
+}
+
+function inferPacketTimingOffset(
+  packet: ClipFactoryPacketWire,
+  message: Pick<
+    ClipFactoryPacketWire["messages"][number],
+    "timestampMs" | "startSeconds" | "endSeconds"
+  >,
+): number {
+  const playbackStartSeconds = finiteNonNegative(
+    packet.clockMap.playbackStartSeconds,
+  );
+  if (!playbackStartSeconds) return 0;
+
+  const clipDuration =
+    finitePositive(packet.clockMap.playbackDurationSeconds) ??
+    finitePositive(packet.durationSeconds);
+  if (
+    clipDuration !== undefined &&
+    message.startSeconds > clipDuration &&
+    message.startSeconds - playbackStartSeconds <= clipDuration
+  ) {
+    return playbackStartSeconds;
+  }
+
+  const timestampRelativeSeconds =
+    (message.timestampMs - packet.clockMap.recordingStartMs) / 1000;
+  if (!Number.isFinite(timestampRelativeSeconds)) return 0;
+
+  const inferredOffset = message.startSeconds - timestampRelativeSeconds;
+  return Math.abs(inferredOffset - playbackStartSeconds) <= 0.25
+    ? playbackStartSeconds
+    : 0;
+}
+
+function clampSeconds(value: number, duration: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(duration, roundToTenth(value)));
+}
+
+function finitePositive(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function finiteNonNegative(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 function capturePlanFromFactoryPacket(

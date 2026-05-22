@@ -9,6 +9,7 @@ import { chatGameplayStartFrame, highlightedChatReadFrame } from "./chat-cue-tim
 import { outputDurationForTimelineEdits } from "./composition-utils";
 import { planHighlightReadFreezes } from "./highlight-freeze-planner";
 import { jobDirectory } from "./job-store";
+import { packetMessageClipTiming } from "./normalize-clip";
 import { parseClipFactoryPacketWire } from "./schemas";
 import { generateOpenAiSpeech } from "./tts";
 import type { ClipFactoryPacketWire, EditRecipeVariant, FactoryJob } from "./types";
@@ -358,7 +359,11 @@ async function chatMessagesForTemplate(job: FactoryJob): Promise<TemplateChatMes
       );
       const parsedPacket = parseClipFactoryPacketWire(packet);
       if (parsedPacket.messages.length > 0) {
-        return sortChatMessages(parsedPacket.messages.map(packetMessageToTemplate));
+        return sortChatMessages(
+          parsedPacket.messages.map((message) =>
+            packetMessageToTemplate(parsedPacket, message),
+          ),
+        );
       }
     } catch {
       // Older jobs may not have a usable packet; highlighted chat is the best fallback.
@@ -373,16 +378,18 @@ function sortChatMessages<T extends TemplateChatMessage>(messages: readonly T[])
 }
 
 function packetMessageToTemplate(
+  packet: ClipFactoryPacketWire,
   message: ClipFactoryPacketWire["messages"][number],
 ): TemplateChatMessage {
+  const timing = packetMessageClipTiming(packet, message);
   return {
     id: message.id,
     speaker: message.speaker,
     playerId: message.playerId,
     channel: message.channel,
     text: message.text,
-    timeStart: message.startSeconds,
-    timeEnd: message.endSeconds,
+    timeStart: timing.timeStart,
+    timeEnd: timing.timeEnd,
     timestamp: message.timestampMs,
   };
 }
