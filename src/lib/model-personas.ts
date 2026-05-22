@@ -15,6 +15,7 @@ export const DEFAULT_TIKTOK_VOICE_INSTRUCTIONS = [
 export type ModelPersona = {
   id: string;
   label: string;
+  model?: string;
   matchers: string[];
   face?: {
     src: string;
@@ -40,8 +41,9 @@ export const NARRATOR_PERSONA: ModelPersona = {
 export const MODEL_PERSONAS: ModelPersona[] = [
   {
     id: "mimo",
-    label: "Mimo-Flash",
-    matchers: ["mimo", "mimo-flash"],
+    label: "Mimo-Chan",
+    model: "xiaomi/mimo-v2-flash",
+    matchers: ["mimo", "mimo-chan", "mimo-flash", "xiaomi/mimo-v2-flash"],
     face: {
       src: "assets/bot-faces/mimo.png",
       previewUrl: "/api/assets/bot-faces/mimo.png",
@@ -54,8 +56,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "minimax",
-    label: "MiniMax",
-    matchers: ["minimax", "mini-max"],
+    label: "MiniMax-Max",
+    model: "minimax/minimax-m2.5",
+    matchers: ["minimax", "mini-max", "minimax-max", "minimax/minimax-m2.5"],
     face: {
       src: "assets/bot-faces/minimax.png",
       previewUrl: "/api/assets/bot-faces/minimax.png",
@@ -67,8 +70,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "qwen",
-    label: "Qwen-Duchess",
-    matchers: ["qwen", "qwen-duchess"],
+    label: "Qwen-Kyle",
+    model: "qwen/qwen3-235b-a22b-2507",
+    matchers: ["qwen", "qwen-kyle", "qwen-duchess", "qwen/qwen3-235b-a22b-2507"],
     face: {
       src: "assets/bot-faces/qwen.png",
       previewUrl: "/api/assets/bot-faces/qwen.png",
@@ -81,8 +85,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "deepseek",
-    label: "DeepSeek-Nex",
-    matchers: ["deepseek", "deepseek-nex"],
+    label: "DeepSeek-Hank",
+    model: "deepseek/deepseek-v4-flash",
+    matchers: ["deepseek", "deepseek-hank", "deepseek-nex", "deepseek/deepseek-v4-flash"],
     face: {
       src: "assets/bot-faces/deepseek.png",
       previewUrl: "/api/assets/bot-faces/deepseek.png",
@@ -95,8 +100,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "gemini",
-    label: "Gemini-Wisp",
-    matchers: ["gemini", "gemini-wisp"],
+    label: "Gemini-Elwin",
+    model: "google/gemini-2.5-flash-lite",
+    matchers: ["gemini", "gemini-elwin", "gemini-wisp", "google/gemini-2.5-flash-lite"],
     face: {
       src: "assets/bot-faces/gemini.png",
       previewUrl: "/api/assets/bot-faces/gemini.png",
@@ -108,8 +114,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "ling",
-    label: "Ling-Flash",
-    matchers: ["ling", "ling-flash"],
+    label: "Ling-Wei",
+    model: "inclusionai/ling-2.6-flash",
+    matchers: ["ling", "ling-wei", "ling-flash", "inclusionai/ling-2.6-flash"],
     face: {
       src: "assets/bot-faces/ling.png",
       previewUrl: "/api/assets/bot-faces/ling.png",
@@ -121,8 +128,9 @@ export const MODEL_PERSONAS: ModelPersona[] = [
   },
   {
     id: "ring",
-    label: "Ring",
-    matchers: ["ring"],
+    label: "Ring-Ding",
+    model: "inclusionai/ring-2.6-1t",
+    matchers: ["ring", "ring-ding", "inclusionai/ring-2.6-1t"],
     face: {
       src: "assets/bot-faces/ring.png",
       previewUrl: "/api/assets/bot-faces/ring.png",
@@ -130,6 +138,36 @@ export const MODEL_PERSONAS: ModelPersona[] = [
     voice: {
       voice: "ballad",
       instructions: "Voice: resonant, formal, and dead serious. Add a tiny pause before the final sentence.",
+    },
+  },
+  {
+    id: "grok",
+    label: "Grok-Viper",
+    model: "x-ai/grok-4.1-fast",
+    matchers: ["grok", "grok-viper", "x-ai/grok-4.1-fast"],
+    voice: {
+      voice: "marin",
+      instructions: "Voice: sharp, dry, and fast. Keep it confident and a little chaotic without losing clarity.",
+    },
+  },
+  {
+    id: "seed",
+    label: "Seed-Phantom",
+    model: "bytedance-seed/seed-1.6-flash",
+    matchers: ["seed", "seed-phantom", "bytedance-seed/seed-1.6-flash"],
+    voice: {
+      voice: "sage",
+      instructions: "Voice: quick, cool, and tactical. Make short lines feel like decisive match calls.",
+    },
+  },
+  {
+    id: "hy3",
+    label: "Hy3-Maovin",
+    model: "tencent/hy3-preview",
+    matchers: ["hy3", "hy3-maovin", "tencent/hy3-preview"],
+    voice: {
+      voice: "shimmer",
+      instructions: "Voice: bright, agile, and slightly mysterious. Keep the read clean and playful.",
     },
   },
 ];
@@ -143,4 +181,8 @@ export function personaForSpeaker(speaker?: string): ModelPersona | undefined {
   return MODEL_PERSONAS.find((persona) =>
     persona.matchers.some((matcher) => normalized.includes(matcher)),
   );
+}
+
+export function modelIdForSpeaker(speaker?: string): string | undefined {
+  return personaForSpeaker(speaker)?.model;
 }

@@ -55,6 +55,10 @@ export default async function JobEditorPage({
           renderedVideoUrl: job.artifacts.renderedVideoPath
             ? `/api/jobs/${job.id}/assets/${variant.variantId}.mp4`
             : undefined,
+          baseVideoUrl: job.artifacts.baseRecordingPath
+            ? `/api/jobs/${job.id}/assets/base-recording.webm`
+            : undefined,
+          baseVideoTiming: job.artifacts.baseRecordingTiming,
           rawVideoUrl: job.artifacts.rawVideoPath
             ? `/api/jobs/${job.id}/assets/raw.mp4`
             : undefined,

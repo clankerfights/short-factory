@@ -105,10 +105,20 @@ export function PreviewLayer({
             : undefined,
           background: layer.style.background,
           color: layer.style.color,
+          fontFamily: layer.style.fontFamily,
           fontSize: canvasUnit(layer.style.fontSize, canvas),
           fontWeight: layer.style.weight,
           lineHeight: layer.style.lineHeight,
           textTransform: layer.style.textTransform,
+          textAlign: layer.style.align,
+          textShadow: layer.style.shadow
+            ? `0 ${canvasUnit(8, canvas)} 0 rgba(0,0,0,0.95), 0 ${canvasUnit(18, canvas)} ${canvasUnit(32, canvas)} rgba(0,0,0,0.35)`
+            : undefined,
+          WebkitTextStroke:
+            layer.style.strokeColor && layer.style.strokeWidth
+              ? `${canvasUnit(layer.style.strokeWidth, canvas)} ${layer.style.strokeColor}`
+              : undefined,
+          whiteSpace: layer.style.whiteSpace,
           overflow: "hidden",
         }}
       >

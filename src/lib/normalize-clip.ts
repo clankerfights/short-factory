@@ -53,7 +53,7 @@ export function normalizeFactoryPacketToQuoteJob(args: {
   }
 
   const speaker = mostCommon(highlightedMessages.map((message) => message.speaker));
-  const durationSeconds = Math.max(1, Math.round(packet.durationSeconds));
+  const durationSeconds = Math.max(1, packet.durationSeconds);
   const trimStartMs = 0;
   const trimEndMs = Math.round(packet.durationSeconds * 1000);
   const capturePlan = capturePlanFromFactoryPacket(packet);
@@ -328,7 +328,7 @@ function inferPacketTimingOffset(
 
 function clampSeconds(value: number, duration: number): number {
   if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(duration, roundToTenth(value)));
+  return Math.max(0, Math.min(duration, roundToMillisecond(value)));
 }
 
 function finitePositive(value: number | undefined): number | undefined {
@@ -476,6 +476,10 @@ function mostCommon(values: string[]): string {
 
 function roundToTenth(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function roundToMillisecond(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }
 
 function isChatEvent(

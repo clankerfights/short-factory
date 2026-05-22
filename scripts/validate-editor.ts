@@ -214,7 +214,7 @@ const firstVisibleChatFrame = chatGameplayStartFrame({
   fps: 30,
   sourceDurationFrames: 1650,
 });
-assert.equal(firstVisibleChatFrame, 272);
+assert.equal(firstVisibleChatFrame, 252);
 assert.equal(
   highlightedChatReadFrame({
     message: firstVisibleChat,
@@ -223,7 +223,7 @@ assert.equal(
     fps: 30,
     sourceDurationFrames: 1650,
   }),
-  272,
+  252,
 );
 assert.equal(
   highlightedChatReadFrame({
@@ -233,7 +233,7 @@ assert.equal(
     fps: 30,
     sourceDurationFrames: 1650,
   }),
-  982,
+  945,
 );
 assert.equal(
   highlightedChatReadFrame({
@@ -243,7 +243,7 @@ assert.equal(
     fps: 30,
     sourceDurationFrames: 1650,
   }),
-  1598,
+  1561,
 );
 
 const trimmed = withTrimEdit(composition, { startFrame: 60, endFrame: 210 });
