@@ -18,7 +18,7 @@ import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
 export const DEFAULT_TEMPLATE1_NAME = "Default Template1";
-export const DEFAULT_TEMPLATE1_VERSION = 13;
+export const DEFAULT_TEMPLATE1_VERSION = 14;
 
 const DEFAULT_TEMPLATE1_TIMING = {
   gameplaySpeed: 2,
