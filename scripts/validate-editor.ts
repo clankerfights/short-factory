@@ -134,6 +134,20 @@ assert.equal(
   sourceFrameForOutputFrame(30, undefined, sourceDurationOf(composition), { speed: 2 }),
   60,
 );
+assert.doesNotThrow(() =>
+  editCompositionSchema.parse({
+    ...composition,
+    timelineEdits: { playback: { speed: 16 } },
+  }),
+);
+assert.equal(
+  outputFrameForSourceFrame(160, undefined, sourceDurationOf(composition), { speed: 16 }),
+  10,
+);
+assert.equal(
+  sourceFrameForOutputFrame(10, undefined, sourceDurationOf(composition), { speed: 16 }),
+  160,
+);
 assert.equal(
   outputFrameForSourceFrame(
     31,

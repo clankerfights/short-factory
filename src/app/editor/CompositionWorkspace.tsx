@@ -52,6 +52,7 @@ type SaveTarget =
       variantId: string;
       compositionUrl: string;
       renderUrl: string;
+      renderTargetUrl: string;
       openFolderUrl: string;
       ttsUrl: string;
       renderedVideoUrl?: string;
@@ -573,6 +574,25 @@ export function CompositionWorkspace({
 
   async function renderJob() {
     if (target.kind !== "job") return;
+    setBusy("render-target");
+    setMessage("Choose where to save the rendered MP4.");
+    let saveAsPath: string | null = null;
+    try {
+      saveAsPath = await chooseRenderTarget(
+        target.renderTargetUrl,
+        `${target.jobId}-${target.variantId}.mp4`,
+      );
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not choose save location.");
+      setBusy(null);
+      return;
+    }
+    setBusy(null);
+    if (!saveAsPath) {
+      setMessage("Render canceled.");
+      return;
+    }
+
     const saved = await saveComposition();
     if (!saved) return;
     setBusy("render");
@@ -581,16 +601,26 @@ export function CompositionWorkspace({
       const response = await fetch(target.renderUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ variantId: target.variantId }),
+        body: JSON.stringify({ variantId: target.variantId, saveAsPath }),
       });
-      const result = (await response.json()) as { job?: FactoryJob; error?: string };
+      const result = (await response.json()) as {
+        job?: FactoryJob;
+        savedTo?: string;
+        error?: string;
+      };
       if (!response.ok) throw new Error(result.error ?? "Render failed.");
-      setRenderedVideoUrl(
+      const nextRenderedVideoUrl =
         result.job?.artifacts.renderedVideoPath && target.kind === "job"
           ? `/api/jobs/${target.jobId}/assets/${target.variantId}.mp4`
-          : null,
+          : null;
+      if (!nextRenderedVideoUrl) throw new Error("Render finished without an MP4 artifact.");
+
+      setRenderedVideoUrl(nextRenderedVideoUrl);
+      setMessage(
+        result.savedTo
+          ? `Render complete. Saved to ${result.savedTo}.`
+          : "Render complete. The exported MP4 includes the saved layers.",
       );
-      setMessage("Render complete. The exported MP4 includes the saved layers.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Render failed.");
     } finally {
@@ -2546,6 +2576,23 @@ function syncPreviewVideoFrame(
   if (Math.abs(video.currentTime - nextTime) > 0.08) {
     video.currentTime = nextTime;
   }
+}
+
+async function chooseRenderTarget(
+  renderTargetUrl: string,
+  suggestedName: string,
+): Promise<string | null> {
+  const response = await fetch(renderTargetUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ suggestedName }),
+  });
+  const result = (await response.json()) as {
+    selectedPath?: string | null;
+    error?: string;
+  };
+  if (!response.ok) throw new Error(result.error ?? "Could not choose save location.");
+  return result.selectedPath ?? null;
 }
 
 function audioPreviewUrl(src: string | undefined, jobId: string): string | null {

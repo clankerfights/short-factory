@@ -2,6 +2,7 @@ import { Composition } from "remotion";
 import { TIKTOK_CANVAS } from "../lib/edit-model";
 import { NarratorQuotePunchline } from "./templates/NarratorQuotePunchline";
 import type { RemotionFactoryProps } from "./types";
+import "../styles/tiktok-sans.css";
 
 const defaultProps: RemotionFactoryProps = {
   baseVideoSrc: "",

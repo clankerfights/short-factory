@@ -1,0 +1,7 @@
+@font-face {
+  font-family: "TikTok Sans";
+  src: url("../../assets/fonts/TikTokSans-Black.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}

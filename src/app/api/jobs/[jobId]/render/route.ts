@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { readFactoryJob, saveFactoryJob } from "../../../../../lib/job-store";
 import { runNpmScript } from "../../../../../lib/run-script";
@@ -26,13 +28,33 @@ export async function POST(
       body.variantId,
     ]);
 
-    return NextResponse.json({ job: await readFactoryJob(job.id) });
+    const renderedJob = await readFactoryJob(job.id);
+    let savedTo: string | undefined;
+    if (body.saveAsPath) {
+      savedTo = await copyRenderedMp4(renderedJob.artifacts.renderedVideoPath, body.saveAsPath);
+    }
+
+    return NextResponse.json({ job: renderedJob, savedTo });
   } catch (error) {
     job.status.render = "failed";
     job.artifacts.error = error instanceof Error ? error.message : "Unknown error";
     await saveFactoryJob(job);
     return NextResponse.json({ error: job.artifacts.error, job }, { status: 500 });
   }
+}
+
+async function copyRenderedMp4(
+  renderedVideoPath: string | undefined,
+  saveAsPath: string,
+): Promise<string> {
+  if (!renderedVideoPath) throw new Error("Render finished without an MP4 artifact.");
+  const outputPath = path.resolve(saveAsPath);
+  if (path.extname(outputPath).toLowerCase() !== ".mp4") {
+    throw new Error("Choose an .mp4 output path.");
+  }
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.copyFile(renderedVideoPath, outputPath);
+  return outputPath;
 }
 
 async function optionalJson(request: Request): Promise<unknown> {

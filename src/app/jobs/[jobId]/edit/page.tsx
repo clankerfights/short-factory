@@ -50,6 +50,7 @@ export default async function JobEditorPage({
           variantId: variant.variantId,
           compositionUrl: `/api/jobs/${job.id}/composition`,
           renderUrl: `/api/jobs/${job.id}/render`,
+          renderTargetUrl: `/api/jobs/${job.id}/render-target`,
           openFolderUrl: `/api/jobs/${job.id}/open-folder`,
           ttsUrl: `/api/jobs/${job.id}/tts`,
           renderedVideoUrl: job.artifacts.renderedVideoPath
