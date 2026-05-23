@@ -5,7 +5,7 @@ import type { FactoryJob } from "../lib/types";
 
 const DEFAULT_TEMPLATE_ID = "default-template1";
 const DEFAULT_CLIP_PLAYBACK_SPEED = 2;
-const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 1.25, 1.5, 2, 2.5, 3] as const;
+const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 2, 3, 4, 6, 8, 10, 16] as const;
 
 type ApiJobResponse = {
   job?: FactoryJob;

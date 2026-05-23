@@ -7,7 +7,7 @@ export const createJobRequestSchema = z.object({
   finalMessageTone: z.string().trim().optional(),
   templateId: z.string().trim().optional(),
   toneHint: z.string().trim().optional(),
-  clipPlaybackSpeed: z.number().min(0.5).max(4).optional(),
+  clipPlaybackSpeed: z.number().min(1).max(16).optional(),
 });
 
 export const recordJobRequestSchema = z.object({
@@ -16,6 +16,11 @@ export const recordJobRequestSchema = z.object({
 
 export const renderJobRequestSchema = z.object({
   variantId: z.string().min(1).default("v1"),
+  saveAsPath: z.string().trim().optional(),
+});
+
+export const renderTargetRequestSchema = z.object({
+  suggestedName: z.string().trim().optional(),
 });
 
 const finiteNumberSchema = z.number().finite();
@@ -310,7 +315,7 @@ export const editCompositionSchema = z.object({
         .optional(),
       playback: z
         .object({
-          speed: z.number().min(0.5).max(4),
+          speed: z.number().min(0.5).max(16),
         })
         .optional(),
       freezes: z

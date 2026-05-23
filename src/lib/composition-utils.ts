@@ -290,7 +290,7 @@ export function normalizeTrim(
 export function normalizePlaybackSpeed(playback: PlaybackSpeedEdit | undefined): number {
   const speed = playback?.speed;
   if (speed === undefined || !Number.isFinite(speed)) return 1;
-  return Math.max(0.5, Math.min(4, speed));
+  return Math.max(0.5, Math.min(16, speed));
 }
 
 export function sourceFramesToOutputFrames(
