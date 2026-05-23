@@ -1,7 +1,12 @@
 import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
-import type { EditComposition, EditLayer, TtsLayer } from "./edit-model";
+import type {
+  ChatCueTiming,
+  EditComposition,
+  EditLayer,
+  TtsLayer,
+} from "./edit-model";
 import { TIKTOK_CANVAS } from "./edit-model";
 import { mp3DurationSeconds } from "./audio-duration";
 import { botFaceForSpeaker } from "./bot-assets";
@@ -18,15 +23,15 @@ import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
 export const DEFAULT_TEMPLATE1_NAME = "Default Template1";
-export const DEFAULT_TEMPLATE1_VERSION = 14;
+export const DEFAULT_TEMPLATE1_VERSION = 21;
 
 const DEFAULT_TEMPLATE1_TIMING = {
   gameplaySpeed: 2,
-  finalHighlightPostrollSeconds: 0.55,
+  finalHighlightPostrollSeconds: 1.35,
 } as const;
 const OUTRO_WOOSH_SRC = "sound-effects/alexis_gaming_cam-woosh-long-cartoon-370386.mp3";
 const TIKTOK_HOOK_FONT =
-  '"TikTok Sans", Montserrat, "Arial Black", Impact, system-ui, sans-serif';
+  'Montserrat, "Proxima Nova", "TikTok Sans", Arial, system-ui, sans-serif';
 
 export async function applyDefaultTemplate1(
   job: FactoryJob,
@@ -62,31 +67,38 @@ export async function applyDefaultTemplate1(
   const introSpeaker = finalHighlightedMessage?.speaker ?? variant.speaker;
   const introFace = botFaceForSpeaker(introSpeaker);
   const introModelName = shortModelNameForSpeaker(introSpeaker);
+  const detectedCueDurationSeconds = maxChatCueSeconds(job);
   const sourceDurationSeconds = Math.max(
     baseSourceDurationSeconds,
     finalHighlightedMessage
       ? finalHighlightedMessage.timeStart +
           DEFAULT_TEMPLATE1_TIMING.finalHighlightPostrollSeconds
       : 0,
+    detectedCueDurationSeconds
+      ? detectedCueDurationSeconds + DEFAULT_TEMPLATE1_TIMING.finalHighlightPostrollSeconds
+      : 0,
   );
   const rawSourceDuration = Math.max(1, Math.round(sourceDurationSeconds * fps));
   const firstChatMessage = allChatMessages[0];
   const firstChatFrame =
     firstChatMessage !== undefined
-      ? chatGameplayStartFrame({
-          message: firstChatMessage,
-          fps,
-          sourceDurationFrames: rawSourceDuration,
-        })
+      ? chatCueFrameForMessage(job, firstChatMessage, rawSourceDuration) ??
+        chatGameplayStartFrame({
+            message: firstChatMessage,
+            fps,
+            sourceDurationFrames: rawSourceDuration,
+          })
       : 0;
-  const highlightedFrames = highlighted.map((message) =>
-    highlightedChatReadFrame({
-      message,
-      firstChatMessage,
-      firstChatFrame,
-      fps,
-      sourceDurationFrames: rawSourceDuration,
-    }),
+  const highlightedCues = highlighted.map((message) => chatCueForMessage(job, message));
+  const highlightedFrames = highlighted.map((message, index) =>
+    chatCueFrame(highlightedCues[index], rawSourceDuration) ??
+      highlightedChatReadFrame({
+        message,
+        firstChatMessage,
+        firstChatFrame,
+        fps,
+        sourceDurationFrames: rawSourceDuration,
+      }),
   );
   const gameplayStartFrame = firstChatFrame;
   const gameplaySourceDuration = Math.max(1, rawSourceDuration - gameplayStartFrame);
@@ -112,7 +124,14 @@ export async function applyDefaultTemplate1(
       startFrame: 0,
       instructions: isFinalHighlight ? job.quoteJob.finalMessageVoiceInstructions : undefined,
     });
-    highlightReads.push({ id: highlightId, sourceFrame, message, speech, index });
+    highlightReads.push({
+      id: highlightId,
+      sourceFrame,
+      recordingFrame: finiteRecordingFrame(highlightedCues[index]?.recordingFrame),
+      message,
+      speech,
+      index,
+    });
   }
 
   const highlightPlan = planHighlightReadFreezes({
@@ -120,6 +139,7 @@ export async function applyDefaultTemplate1(
       id: read.id,
       sourceFrame: read.sourceFrame,
       durationFrames: read.speech.time.duration,
+      recordingFrame: read.recordingFrame,
     })),
     sourceDuration: gameplaySourceDuration,
     outputOffsetFrames: introFrames,
@@ -194,13 +214,10 @@ export async function applyDefaultTemplate1(
       zIndex: 20,
       style: {
         fontSize: fitHookFontSize(hookText),
-        lineHeight: 0.88,
+        lineHeight: 0.94,
         fontFamily: TIKTOK_HOOK_FONT,
-        weight: 900,
-        color: "#ffffff",
-        accentColor: "#ff0050",
-        strokeColor: "#090909",
-        strokeWidth: 7,
+        weight: 700,
+        color: "#090909",
         shadow: true,
         textTransform: "uppercase",
         align: "center",
@@ -339,6 +356,7 @@ async function createTtsLayer(args: {
 type HighlightRead = {
   id: string;
   sourceFrame: number;
+  recordingFrame?: number;
   message: TemplateChatMessage;
   speech: TtsLayer;
   index: number;
@@ -474,6 +492,52 @@ function packetMessageToTemplate(
   };
 }
 
+function chatCueFrameForMessage(
+  job: FactoryJob,
+  message: TemplateChatMessage,
+  sourceDurationFrames: number,
+): number | undefined {
+  return chatCueFrame(chatCueForMessage(job, message), sourceDurationFrames);
+}
+
+function chatCueForMessage(
+  job: FactoryJob,
+  message: TemplateChatMessage,
+): ChatCueTiming | undefined {
+  return job.artifacts.chatCueTiming?.messages.find(
+    (candidate) => candidate.messageId === message.id,
+  );
+}
+
+function chatCueFrame(
+  cue: ChatCueTiming | undefined,
+  sourceDurationFrames: number,
+): number | undefined {
+  if (!cue) return undefined;
+  return Math.max(
+    0,
+    Math.min(sourceDurationFrames - 1, Math.round(cue.sourceFrame)),
+  );
+}
+
+function finiteRecordingFrame(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.round(value));
+}
+
+function maxChatCueSeconds(job: FactoryJob): number | undefined {
+  const cues = job.artifacts.chatCueTiming?.messages ?? [];
+  let maxSeconds = 0;
+  for (const cue of cues) {
+    if (Number.isFinite(cue.sourceSeconds)) {
+      maxSeconds = Math.max(maxSeconds, cue.sourceSeconds);
+    } else if (Number.isFinite(cue.sourceFrame)) {
+      maxSeconds = Math.max(maxSeconds, cue.sourceFrame / TIKTOK_CANVAS.fps);
+    }
+  }
+  return maxSeconds > 0 ? maxSeconds : undefined;
+}
+
 function safeFileName(value: string): string {
   return value.replace(/[^a-z0-9-_]/gi, "_").slice(0, 80) || "tts";
 }
@@ -496,9 +560,9 @@ function uniqueHighlightId(
 }
 
 function fitHookFontSize(text: string): number {
-  if (text.length > 90) return 72;
-  if (text.length > 62) return 88;
-  return 108;
+  if (text.length > 90) return 64;
+  if (text.length > 62) return 76;
+  return 94;
 }
 
 function fitIntroModelFontSize(modelId: string): number {

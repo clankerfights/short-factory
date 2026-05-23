@@ -2571,10 +2571,18 @@ function syncPreviewVideoFrame(
   frame: number,
   fps: number,
 ): void {
-  const nextTime = frame / fps;
+  const frameDuration = 1 / Math.max(1, fps);
+  // Seek to the middle of the intended frame so Chromium does not hold the
+  // previous decoded frame while face/TTS overlays have already advanced.
+  const nextTime = (Math.max(0, frame) + 0.5) * frameDuration;
   if (!Number.isFinite(nextTime)) return;
-  if (Math.abs(video.currentTime - nextTime) > 0.08) {
-    video.currentTime = nextTime;
+  const duration =
+    Number.isFinite(video.duration) && video.duration > 0
+      ? video.duration
+      : Number.POSITIVE_INFINITY;
+  const clampedTime = Math.min(duration, nextTime);
+  if (Math.abs(video.currentTime - clampedTime) > Math.max(0.006, frameDuration / 3)) {
+    video.currentTime = clampedTime;
   }
 }
 

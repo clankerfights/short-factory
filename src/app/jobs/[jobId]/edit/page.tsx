@@ -10,16 +10,20 @@ import {
   resolveAutomaticTemplateId,
 } from "../../../../lib/template-registry";
 import { CompositionWorkspace } from "../../../editor/CompositionWorkspace";
+import { EditorReadyNotification } from "../../../editor/EditorReadyNotification";
 
 export const runtime = "nodejs";
 
 export default async function JobEditorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ jobId: string }>;
+  searchParams?: Promise<{ notify?: string }>;
 }) {
   try {
     const { jobId } = await params;
+    const query = await searchParams;
     const job = await readFactoryJob(jobId);
     const variant = job.editRecipe.variants[0];
     if (!variant) notFound();
@@ -40,33 +44,40 @@ export default async function JobEditorPage({
     ]);
 
     return (
-      <CompositionWorkspace
-        title={`Job ${job.id.slice(0, 8)}`}
-        subtitle={`${job.quoteJob.game} / ${variant.variantId} / ${job.quoteJob.speaker}`}
-        initialComposition={compositionForVariant(variant)}
-        target={{
-          kind: "job",
-          jobId: job.id,
-          variantId: variant.variantId,
-          compositionUrl: `/api/jobs/${job.id}/composition`,
-          renderUrl: `/api/jobs/${job.id}/render`,
-          renderTargetUrl: `/api/jobs/${job.id}/render-target`,
-          openFolderUrl: `/api/jobs/${job.id}/open-folder`,
-          ttsUrl: `/api/jobs/${job.id}/tts`,
-          renderedVideoUrl: job.artifacts.renderedVideoPath
-            ? `/api/jobs/${job.id}/assets/${variant.variantId}.mp4`
-            : undefined,
-          baseVideoUrl: job.artifacts.baseRecordingPath
-            ? `/api/jobs/${job.id}/assets/base-recording.webm`
-            : undefined,
-          baseVideoTiming: job.artifacts.baseRecordingTiming,
-          rawVideoUrl: job.artifacts.rawVideoPath
-            ? `/api/jobs/${job.id}/assets/raw.mp4`
-            : undefined,
-          templates,
-          assets,
-        }}
-      />
+      <>
+        <EditorReadyNotification
+          enabled={query?.notify === "ready"}
+          jobId={job.id}
+          game={job.quoteJob.game}
+        />
+        <CompositionWorkspace
+          title={`Job ${job.id.slice(0, 8)}`}
+          subtitle={`${job.quoteJob.game} / ${variant.variantId} / ${job.quoteJob.speaker}`}
+          initialComposition={compositionForVariant(variant)}
+          target={{
+            kind: "job",
+            jobId: job.id,
+            variantId: variant.variantId,
+            compositionUrl: `/api/jobs/${job.id}/composition`,
+            renderUrl: `/api/jobs/${job.id}/render`,
+            renderTargetUrl: `/api/jobs/${job.id}/render-target`,
+            openFolderUrl: `/api/jobs/${job.id}/open-folder`,
+            ttsUrl: `/api/jobs/${job.id}/tts`,
+            renderedVideoUrl: job.artifacts.renderedVideoPath
+              ? `/api/jobs/${job.id}/assets/${variant.variantId}.mp4`
+              : undefined,
+            baseVideoUrl: job.artifacts.baseRecordingPath
+              ? `/api/jobs/${job.id}/assets/base-recording.webm`
+              : undefined,
+            baseVideoTiming: job.artifacts.baseRecordingTiming,
+            rawVideoUrl: job.artifacts.rawVideoPath
+              ? `/api/jobs/${job.id}/assets/raw.mp4`
+              : undefined,
+            templates,
+            assets,
+          }}
+        />
+      </>
     );
   } catch {
     notFound();

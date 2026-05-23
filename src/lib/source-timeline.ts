@@ -5,9 +5,12 @@ import type {
   TrimFrameEdit,
 } from "./edit-model";
 import {
+  normalizeFreezes,
+  normalizePlaybackSpeed,
   normalizeTrim,
   sourceDurationForTimelineEdits,
   sourceFrameForOutputFrame,
+  sourceFramesToOutputFrames,
 } from "./composition-utils";
 
 export function normalizeBaseRecordingTiming(
@@ -78,6 +81,20 @@ export function recordingFrameForSourceFrame(args: {
   );
 }
 
+export function clampRecordingFrame(args: {
+  recordingFrame: number;
+  baseVideoTiming?: BaseRecordingTiming;
+  sourceDurationFrames: number;
+  fps: number;
+}): number {
+  const timing = normalizeBaseRecordingTiming(
+    args.baseVideoTiming,
+    args.sourceDurationFrames,
+    args.fps,
+  );
+  return clampFrame(args.recordingFrame, timing.recordedDurationFrames);
+}
+
 export function mediaPlaybackRateForSourceTimeline(
   timing: BaseRecordingTiming | undefined,
 ): number {
@@ -97,6 +114,21 @@ export function recordingFrameForOutputFrame(args: {
     args.sourceDurationFrames,
     { trim: args.trim },
   );
+  const freezeRecordingFrame = recordingFrameForActiveFreeze({
+    outputFrame: Math.max(0, args.outputFrame),
+    freezes: args.freezes,
+    playback: args.playback,
+    sourceDuration,
+  });
+  if (freezeRecordingFrame !== undefined) {
+    return clampRecordingFrame({
+      recordingFrame: freezeRecordingFrame,
+      baseVideoTiming: args.baseVideoTiming,
+      sourceDurationFrames: args.sourceDurationFrames,
+      fps: args.fps,
+    });
+  }
+
   const sourceFrame = sourceFrameForOutputFrame(
     Math.max(0, args.outputFrame),
     args.freezes,
@@ -112,11 +144,41 @@ export function recordingFrameForOutputFrame(args: {
   });
 }
 
+function recordingFrameForActiveFreeze(args: {
+  outputFrame: number;
+  freezes?: FreezeFrameEdit[];
+  playback?: PlaybackSpeedEdit;
+  sourceDuration: number;
+}): number | undefined {
+  const normalized = normalizeFreezes(args.freezes, args.sourceDuration);
+  const speed = normalizePlaybackSpeed(args.playback);
+  let outputCursor = 0;
+  let sourceCursor = 0;
+
+  for (const freeze of normalized) {
+    const normalDuration = sourceFramesToOutputFrames(
+      Math.max(0, freeze.atFrame - sourceCursor),
+      speed,
+    );
+    if (args.outputFrame < outputCursor + normalDuration) return undefined;
+
+    outputCursor += normalDuration;
+    if (args.outputFrame < outputCursor + freeze.durationFrames) {
+      return freeze.recordingFrame;
+    }
+
+    outputCursor += freeze.durationFrames;
+    sourceCursor = Math.min(args.sourceDuration, freeze.atFrame + 1);
+  }
+
+  return undefined;
+}
+
 function clampFrame(frame: number, durationFrames: number): number {
   return Math.max(0, Math.min(Math.max(0, durationFrames - 1), Math.round(frame)));
 }
 
 function normalizePlaybackRate(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return 1;
-  return Math.max(0.1, Math.min(16, value));
+  return Math.max(0.1, Math.min(32, value));
 }

@@ -204,6 +204,14 @@ async function validateDefaultTemplate1FromFactoryPacket(): Promise<void> {
     assert.ok(baseLayer);
     assert.equal(baseLayer.kind, "video-source");
     assert.equal(openingCaption?.time.duration, baseLayer?.time.start);
+    assert.equal(openingCaption?.kind, "text");
+    if (openingCaption?.kind === "text") {
+      assert.equal(openingCaption.style.fontFamily?.includes("Montserrat"), true);
+      assert.equal(openingCaption.style.strokeColor, undefined);
+      assert.equal(openingCaption.style.strokeWidth, undefined);
+      assert.equal(openingCaption.style.accentColor, undefined);
+      assert.equal(openingCaption.style.shadow, true);
+    }
     assert.equal(highlightSpeech?.kind, "tts");
     assert.equal(highlightSpeech?.time.start, baseLayer?.time.start);
     assert.equal(introModelLabel?.kind, "text");

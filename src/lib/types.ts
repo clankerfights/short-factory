@@ -1,5 +1,6 @@
 import type {
   BaseRecordingTiming,
+  ChatCueTimingArtifact,
   ClipCapturePlan,
   ClipRawMaterials,
   EditComposition,
@@ -212,6 +213,7 @@ export type FactoryJob = {
   artifacts: {
     baseRecordingPath?: string;
     baseRecordingTiming?: BaseRecordingTiming;
+    chatCueTiming?: ChatCueTimingArtifact;
     rawVideoPath?: string;
     factoryPacketPath?: string;
     renderedVideoPath?: string;

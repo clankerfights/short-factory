@@ -22,6 +22,9 @@ async function main() {
   job.status.recording = "complete";
   job.artifacts.baseRecordingPath = result.outputPath;
   job.artifacts.baseRecordingTiming = result.baseRecordingTiming;
+  if (result.chatCueTiming) {
+    job.artifacts.chatCueTiming = result.chatCueTiming;
+  }
   if (result.factoryPacket) {
     const packetPath = path.join(
       process.cwd(),

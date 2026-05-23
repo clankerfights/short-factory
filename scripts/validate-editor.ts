@@ -108,23 +108,23 @@ assert.deepEqual(
 const withFreeze = withFreezeEdits(composition, [
   { id: "freeze-a", atFrame: 30, durationFrames: 45 },
 ]);
-assert.equal(withFreeze.canvas.durationFrames, composition.canvas.durationFrames + 45);
+assert.equal(withFreeze.canvas.durationFrames, composition.canvas.durationFrames + 44);
 assert.equal(
   outputDurationForTimelineEdits(sourceDurationOf(composition), withFreeze.timelineEdits),
-  sourceDurationOf(composition) + 45,
+  sourceDurationOf(composition) + 44,
 );
 assert.equal(sourceFrameForOutputFrame(29, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 29);
 assert.equal(sourceFrameForOutputFrame(30, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
 assert.equal(sourceFrameForOutputFrame(74, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
-assert.equal(sourceFrameForOutputFrame(75, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 30);
-assert.equal(sourceFrameForOutputFrame(76, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 31);
-assert.equal(outputFrameForSourceFrame(31, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 76);
+assert.equal(sourceFrameForOutputFrame(75, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 31);
+assert.equal(sourceFrameForOutputFrame(76, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 32);
+assert.equal(outputFrameForSourceFrame(31, withFreeze.timelineEdits?.freezes, sourceDurationOf(composition)), 75);
 assert.equal(
   outputDurationForTimelineEdits(sourceDurationOf(composition), {
     playback: { speed: 2 },
     freezes: [{ id: "speed-freeze", atFrame: 30, durationFrames: 45 }],
   }),
-  Math.ceil(31 / 2) + 45 + Math.ceil((sourceDurationOf(composition) - 31) / 2),
+  Math.ceil(30 / 2) + 45 + Math.ceil((sourceDurationOf(composition) - 31) / 2),
 );
 assert.equal(
   outputFrameForSourceFrame(60, undefined, sourceDurationOf(composition), { speed: 2 }),
@@ -155,7 +155,7 @@ assert.equal(
     sourceDurationOf(composition),
     { speed: 2 },
   ),
-  61,
+  60,
 );
 assert.equal(remotionAssetPath("sound-effects/fahhhhh.mp3"), "assets/sound-effects/fahhhhh.mp3");
 assert.equal(remotionAssetPath("public/sound-effects/fahhhhh.mp3"), "assets/sound-effects/fahhhhh.mp3");
@@ -201,10 +201,10 @@ assert.deepEqual(
   highlightFreezePlan.reads.map((read) => ({ id: read.id, outputStartFrame: read.outputStartFrame })),
   [
     { id: "168", outputStartFrame: 461 },
-    { id: "169", outputStartFrame: 937 },
-    { id: "170", outputStartFrame: 1735 },
-    { id: "170-2", outputStartFrame: 2049 },
-    { id: "171", outputStartFrame: 2382 },
+    { id: "169", outputStartFrame: 936 },
+    { id: "170", outputStartFrame: 1733 },
+    { id: "170-2", outputStartFrame: 2046 },
+    { id: "171", outputStartFrame: 2378 },
   ],
 );
 
@@ -247,7 +247,7 @@ assert.equal(
     fps: 30,
     sourceDurationFrames: 1650,
   }),
-  945,
+  964,
 );
 assert.equal(
   highlightedChatReadFrame({
@@ -257,7 +257,7 @@ assert.equal(
     fps: 30,
     sourceDurationFrames: 1650,
   }),
-  1561,
+  1580,
 );
 
 const trimmed = withTrimEdit(composition, { startFrame: 60, endFrame: 210 });
@@ -268,7 +268,7 @@ assert.equal(rawFrameToSourceFrame(75, trimmed.timelineEdits?.trim, sourceDurati
 const trimmedWithFreeze = withFreezeEdits(trimmed, [
   { id: "trim-freeze", atFrame: 40, durationFrames: 30 },
 ]);
-assert.equal(trimmedWithFreeze.canvas.durationFrames, 180);
+assert.equal(trimmedWithFreeze.canvas.durationFrames, 179);
 assert.equal(
   sourceFrameToRawFrame(
     sourceFrameForOutputFrame(40, trimmedWithFreeze.timelineEdits?.freezes, 150),
@@ -355,9 +355,57 @@ assert.equal(
     baseVideoTiming: baseTiming,
     fps: 30,
   }),
-  155,
+  156,
 );
 assert.equal(trimmedWithFreeze.timelineEdits?.trim?.startFrame, 60);
+
+const browserObservedTiming: BaseRecordingTiming = {
+  fps: 30,
+  recordedDurationFrames: 1600,
+  clipStartFrame: 120,
+  clipEndFrame: 1480,
+  clipDurationFrames: 3000,
+  playbackRate: 2,
+  method: "backfill-detection",
+  confidence: "high",
+};
+const browserObservedFreeze = {
+  id: "freeze-browser-observed-chat",
+  atFrame: 1320,
+  durationFrames: 60,
+  recordingFrame: 876,
+};
+const browserObservedOutputFrame = outputFrameForSourceFrame(
+  browserObservedFreeze.atFrame,
+  [],
+  2500,
+  { speed: 8 },
+);
+assert.equal(browserObservedOutputFrame, 165);
+assert.equal(
+  recordingFrameForOutputFrame({
+    outputFrame: browserObservedOutputFrame,
+    freezes: [browserObservedFreeze],
+    playback: { speed: 8 },
+    trim: { startFrame: 80, endFrame: 2580 },
+    sourceDurationFrames: 3000,
+    baseVideoTiming: browserObservedTiming,
+    fps: 30,
+  }),
+  browserObservedFreeze.recordingFrame,
+);
+assert.equal(
+  outputFrameForSourceFrame(1327, [], 2500, { speed: 32 }),
+  42,
+);
+assert.equal(
+  sourceFrameForOutputFrame(41, undefined, 2500, { speed: 32 }),
+  1312,
+);
+assert.equal(
+  sourceFrameForOutputFrame(42, [{ id: "freeze-at-cue", atFrame: 1327, durationFrames: 60 }], 2500, { speed: 32 }),
+  1327,
+);
 
 const localClip = normalizeClipInput(
   "http://localhost:3000/?clip=efa6c416-5c5a-447b-aea4-5a2e343c8626",

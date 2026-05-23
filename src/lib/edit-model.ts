@@ -19,6 +19,7 @@ export type FreezeFrameEdit = {
   id: string;
   atFrame: number;
   durationFrames: number;
+  recordingFrame?: number;
 };
 
 export type TrimFrameEdit = {
@@ -39,6 +40,27 @@ export type BaseRecordingTiming = {
   playbackRate: number;
   method: "play-start" | "backfill-detection" | "none";
   confidence: "high" | "medium" | "low";
+};
+
+export type ChatCueTiming = {
+  messageId: number;
+  sourceFrame: number;
+  sourceSeconds: number;
+  recordingFrame?: number;
+  detectedAtMs?: number;
+  screenRect?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  method: "browser-visible" | "packet-timestamp";
+};
+
+export type ChatCueTimingArtifact = {
+  fps: number;
+  playbackRate: number;
+  messages: ChatCueTiming[];
 };
 
 export type ViewportFit = "cover" | "contain" | "fill";

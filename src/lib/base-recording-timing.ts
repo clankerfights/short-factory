@@ -15,6 +15,7 @@ const PROBE_HEIGHT = 64;
 const MEANINGFUL_STDDEV = 9.5;
 const MEANINGFUL_DIFF = 12;
 const STABLE_FRAMES = 5;
+const MARKER_MIN_PIXELS = 6;
 
 export async function ensureBaseRecordingTiming(
   job: FactoryJob,
@@ -60,6 +61,27 @@ export async function detectBaseRecordingTiming(args: {
   const recordedFrames = await readRecordedDurationFrames(args.videoPath, fps);
 
   try {
+    const markerStart = await detectPlaybackStartMarker(args.videoPath, fps);
+    if (markerStart.frame !== null) {
+      return normalizeBaseRecordingTiming(
+        {
+          fps,
+          recordedDurationFrames: recordedFrames,
+          clipStartFrame: markerStart.frame,
+          clipEndFrame: Math.min(
+            recordedFrames,
+            markerStart.frame + Math.ceil(args.clipDurationFrames / playbackRate),
+          ),
+          clipDurationFrames: args.clipDurationFrames,
+          playbackRate,
+          method: "backfill-detection",
+          confidence: "high",
+        },
+        args.clipDurationFrames,
+        fps,
+      );
+    }
+
     const detectedStart = await detectFirstMeaningfulFrame(args.videoPath, fps);
     const clipStartFrame = detectedStart.frame ?? 0;
     return normalizeBaseRecordingTiming(
@@ -97,6 +119,59 @@ export async function detectBaseRecordingTiming(args: {
   }
 }
 
+async function detectPlaybackStartMarker(
+  videoPath: string,
+  fps: number,
+): Promise<{ frame: number | null }> {
+  const probeDir = await fs.mkdtemp(path.join(os.tmpdir(), "short-factory-marker-"));
+  try {
+    await extractProbeFrames(videoPath, fps, probeDir);
+    const entries = (await fs.readdir(probeDir))
+      .filter((entry) => entry.endsWith(".png"))
+      .sort();
+    let lastMarkerFrame: number | null = null;
+
+    for (let frameIndex = 0; frameIndex < entries.length; frameIndex += 1) {
+      const decoded = decodePng(await fs.readFile(path.join(probeDir, entries[frameIndex])));
+      if (hasPlaybackStartMarker(decoded)) {
+        lastMarkerFrame = frameIndex;
+      } else if (lastMarkerFrame !== null) {
+        return { frame: Math.min(frameIndex, lastMarkerFrame + 1) };
+      }
+    }
+
+    return {
+      frame: lastMarkerFrame === null ? null : Math.min(entries.length - 1, lastMarkerFrame + 1),
+    };
+  } finally {
+    await fs.rm(probeDir, { recursive: true, force: true });
+  }
+}
+
+function hasPlaybackStartMarker(decoded: {
+  width: number;
+  height: number;
+  channels: number;
+  pixels: Uint8Array;
+}): boolean {
+  if (decoded.channels < 3) return false;
+  const sampleWidth = Math.max(1, Math.min(8, decoded.width));
+  const sampleHeight = Math.max(1, Math.min(8, decoded.height));
+  let markerPixels = 0;
+
+  for (let y = 0; y < sampleHeight; y += 1) {
+    for (let x = 0; x < sampleWidth; x += 1) {
+      const offset = (y * decoded.width + x) * decoded.channels;
+      const red = decoded.pixels[offset];
+      const green = decoded.pixels[offset + 1];
+      const blue = decoded.pixels[offset + 2];
+      if (red >= 180 && green <= 80 && blue >= 180) markerPixels += 1;
+    }
+  }
+
+  return markerPixels >= MARKER_MIN_PIXELS;
+}
+
 function playbackRateForJob(job: FactoryJob): number {
   return replayPlaybackRate(
     job.artifacts.baseRecordingTiming?.playbackRate ??
@@ -107,7 +182,7 @@ function playbackRateForJob(job: FactoryJob): number {
 
 function replayPlaybackRate(value: number | undefined): number {
   if (value === undefined || !Number.isFinite(value)) return DEFAULT_REPLAY_PLAYBACK_RATE;
-  return Math.max(0.1, Math.min(16, value));
+  return Math.max(0.1, Math.min(32, value));
 }
 
 async function readRecordedDurationFrames(videoPath: string, fps: number): Promise<number> {

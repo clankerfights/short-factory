@@ -5,6 +5,7 @@ export type HighlightReadTiming = {
   id: string;
   sourceFrame: number;
   durationFrames: number;
+  recordingFrame?: number;
 };
 
 export type PlannedHighlightRead = HighlightReadTiming & {
@@ -29,6 +30,7 @@ export function planHighlightReadFreezes(args: {
       ...read,
       sourceFrame: Math.max(0, Math.round(read.sourceFrame)),
       durationFrames: Math.max(1, Math.round(read.durationFrames)),
+      recordingFrame: finiteRecordingFrame(read.recordingFrame),
     }))
     .sort((a, b) => a.sourceFrame - b.sourceFrame);
 
@@ -63,10 +65,26 @@ export function planHighlightReadFreezes(args: {
       id: freezeId,
       atFrame: sourceFrame,
       durationFrames: readOffset,
+      ...recordingFrameForGroup(sameFrameReads),
     });
   }
 
   return { freezes, reads: plannedReads };
+}
+
+function recordingFrameForGroup(
+  reads: HighlightReadTiming[],
+): Pick<FreezeFrameEdit, "recordingFrame"> {
+  const frames = reads
+    .map((read) => finiteRecordingFrame(read.recordingFrame))
+    .filter((frame): frame is number => frame !== undefined);
+  if (!frames.length) return {};
+  return { recordingFrame: Math.max(...frames) };
+}
+
+function finiteRecordingFrame(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.round(value));
 }
 
 function freezeGroupId(reads: HighlightReadTiming[]): string {

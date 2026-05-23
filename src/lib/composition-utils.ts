@@ -97,7 +97,7 @@ export function outputDurationForTimelineEdits(
 
   for (const freeze of freezes) {
     outputDuration += sourceFramesToOutputFrames(
-      Math.max(0, freeze.atFrame - sourceCursor + 1),
+      Math.max(0, freeze.atFrame - sourceCursor),
       speed,
     );
     outputDuration += freeze.durationFrames;
@@ -139,7 +139,7 @@ export function sourceFrameForOutputFrame(
   let sourceCursor = 0;
 
   for (const freeze of normalized) {
-    const sourceFrames = Math.max(0, freeze.atFrame - sourceCursor + 1);
+    const sourceFrames = Math.max(0, freeze.atFrame - sourceCursor);
     const normalDuration = sourceFramesToOutputFrames(sourceFrames, speed);
     if (outputFrame < outputCursor + normalDuration) {
       return clampFrame(
@@ -176,23 +176,32 @@ export function outputFrameForSourceFrame(
   let sourceCursor = 0;
 
   for (const freeze of normalized) {
-    if (clampedSourceFrame <= freeze.atFrame) {
+    if (clampedSourceFrame < freeze.atFrame) {
       return (
         outputCursor +
-        Math.floor(Math.max(0, clampedSourceFrame - sourceCursor) / speed)
+        sourceFramesToOutputFrames(
+          Math.max(0, clampedSourceFrame - sourceCursor),
+          speed,
+        )
       );
     }
     outputCursor += sourceFramesToOutputFrames(
-      Math.max(0, freeze.atFrame - sourceCursor + 1),
+      Math.max(0, freeze.atFrame - sourceCursor),
       speed,
     );
+    if (clampedSourceFrame === freeze.atFrame) {
+      return outputCursor;
+    }
     outputCursor += freeze.durationFrames;
     sourceCursor = Math.min(sourceDuration, freeze.atFrame + 1);
   }
 
   return (
     outputCursor +
-    Math.floor(Math.max(0, clampedSourceFrame - sourceCursor) / speed)
+    sourceFramesToOutputFrames(
+      Math.max(0, clampedSourceFrame - sourceCursor),
+      speed,
+    )
   );
 }
 
@@ -264,11 +273,16 @@ export function normalizeFreezes(
   for (const freeze of freezes ?? []) {
     const atFrame = clampFrame(freeze.atFrame, sourceDuration);
     const existing = byFrame.get(atFrame);
+    const recordingFrame = maxRecordingFrame(
+      existing?.recordingFrame,
+      freeze.recordingFrame,
+    );
     byFrame.set(atFrame, {
       ...freeze,
       id: existing?.id ?? freeze.id,
       atFrame,
       durationFrames: Math.max(1, Math.round((existing?.durationFrames ?? 0) + freeze.durationFrames)),
+      ...(recordingFrame !== undefined ? { recordingFrame } : {}),
     });
   }
   return [...byFrame.values()].sort((a, b) => a.atFrame - b.atFrame);
@@ -290,7 +304,7 @@ export function normalizeTrim(
 export function normalizePlaybackSpeed(playback: PlaybackSpeedEdit | undefined): number {
   const speed = playback?.speed;
   if (speed === undefined || !Number.isFinite(speed)) return 1;
-  return Math.max(0.5, Math.min(16, speed));
+  return Math.max(0.5, Math.min(32, speed));
 }
 
 export function sourceFramesToOutputFrames(
@@ -335,6 +349,16 @@ function withTimelineDuration(composition: EditComposition): EditComposition {
 
 function clampFrame(frame: number, durationFrames: number): number {
   return Math.max(0, Math.min(Math.max(0, durationFrames - 1), Math.round(frame)));
+}
+
+function maxRecordingFrame(
+  first: number | undefined,
+  second: number | undefined,
+): number | undefined {
+  const frames = [first, second]
+    .filter((frame): frame is number => frame !== undefined && Number.isFinite(frame))
+    .map((frame) => Math.max(0, Math.round(frame)));
+  return frames.length ? Math.max(...frames) : undefined;
 }
 
 function uniquifyIds<T extends { id: string }>(items: T[], fallbackPrefix: string): T[] {

@@ -11,7 +11,9 @@
     "validate:editor": "tsx scripts/validate-editor.ts",
     "validate:source-timeline-render": "tsx scripts/validate-source-timeline-render.ts",
     "validate:factory-packet": "tsx scripts/validate-factory-packet.ts",
-    "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render && npm run validate:factory-packet",
+    "validate:template1-browser": "tsx scripts/validate-template1-browser.ts",
+    "validate:highlight-cue-e2e": "tsx scripts/validate-highlight-cue-e2e.ts",
+    "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render && npm run validate:factory-packet && npm run validate:template1-browser && npm run validate:highlight-cue-e2e",
     "record:clip": "tsx scripts/record-clip.ts",
     "render:raw": "tsx scripts/render-raw.ts",
     "render:recipe": "tsx scripts/render-recipe.ts"

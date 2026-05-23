@@ -8,6 +8,7 @@ import {
   sourceDurationForTimelineEdits,
 } from "../../lib/composition-utils";
 import {
+  clampRecordingFrame,
   mediaPlaybackRateForSourceTimeline,
   recordingFrameForSourceFrame,
 } from "../../lib/source-timeline";
@@ -17,6 +18,7 @@ type TimelineVideoChunk = {
   localStartFrame: number;
   durationFrames: number;
   sourceFrame: number;
+  recordingFrame?: number;
 };
 
 export function TimelineVideo({
@@ -61,13 +63,21 @@ export function TimelineVideo({
   return (
     <>
       {chunks.map((chunk, index) => {
-        const startFrom = recordingFrameForSourceFrame({
-          sourceFrame: chunk.sourceFrame,
-          trim: timelineEdits?.trim,
-          sourceDurationFrames: rawSourceDurationFrames,
-          baseVideoTiming,
-          fps,
-        });
+        const startFrom =
+          chunk.recordingFrame !== undefined
+            ? clampRecordingFrame({
+                recordingFrame: chunk.recordingFrame,
+                baseVideoTiming,
+                sourceDurationFrames: rawSourceDurationFrames,
+                fps,
+              })
+            : recordingFrameForSourceFrame({
+                sourceFrame: chunk.sourceFrame,
+                trim: timelineEdits?.trim,
+                sourceDurationFrames: rawSourceDurationFrames,
+                baseVideoTiming,
+                fps,
+              });
 
         return (
           <Sequence
@@ -119,7 +129,7 @@ function timelineVideoChunks(args: {
   let sourceCursor = 0;
 
   for (const freeze of args.freezes) {
-    const sourceFrames = Math.max(0, freeze.atFrame - sourceCursor + 1);
+    const sourceFrames = Math.max(0, freeze.atFrame - sourceCursor);
     const normalDuration = sourceFramesToOutputFrames(sourceFrames, args.playbackSpeed);
     pushIntersection(chunks, {
       kind: "normal",
@@ -138,6 +148,7 @@ function timelineVideoChunks(args: {
       chunkStartFrame: outputCursor,
       chunkDurationFrames: freeze.durationFrames,
       sourceFrame: freeze.atFrame,
+      recordingFrame: freeze.recordingFrame,
       rangeStart,
       rangeEnd,
       sourceDuration: args.sourceDuration,
@@ -183,6 +194,7 @@ function pushIntersection(
     chunkStartFrame: number;
     chunkDurationFrames: number;
     sourceFrame: number;
+    recordingFrame?: number;
     rangeStart: number;
     rangeEnd: number;
     sourceDuration: number;
@@ -204,6 +216,9 @@ function pushIntersection(
     localStartFrame: intersectionStart - args.rangeStart,
     durationFrames: intersectionEnd - intersectionStart,
     sourceFrame: clampFrame(args.sourceFrame + sourceOffset, args.sourceDuration),
+    ...(args.recordingFrame !== undefined && Number.isFinite(args.recordingFrame)
+      ? { recordingFrame: Math.max(0, Math.round(args.recordingFrame)) }
+      : {}),
   });
 }
 

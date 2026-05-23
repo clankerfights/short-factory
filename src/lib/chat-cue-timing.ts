@@ -12,7 +12,7 @@ export type ChatCueTimingConfig = {
 export function defaultChatCueTiming(fps: number): ChatCueTimingConfig {
   return {
     gameplayStartSettleFrames: 0,
-    highlightedReadSettleFrames: Math.round(fps * 0.35),
+    highlightedReadSettleFrames: Math.round(fps * 1),
   };
 }
 

@@ -53,8 +53,12 @@ export function createTextLayer(input: {
     style: {
       fontSize: preset === "quote" ? 54 : 72,
       lineHeight: 1.04,
-      weight: 950,
-      color: "#ffffff",
+      fontFamily:
+        preset === "setup"
+          ? 'Montserrat, "Proxima Nova", "TikTok Sans", Arial, system-ui, sans-serif'
+          : undefined,
+      weight: preset === "setup" ? 700 : 950,
+      color: preset === "setup" ? "#090909" : "#ffffff",
       background: preset === "quote" ? "rgba(5, 7, 10, 0.72)" : undefined,
       textTransform: preset === "setup" ? "uppercase" : "none",
       shadow: true,

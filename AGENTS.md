@@ -12,6 +12,8 @@ Templates must stay generalizable; avoid hardcoding temporary bits like "Ling is
 
 Clankerfights clips are replay snapshots, not raw MP4s; ingest `GET /api/clips/:id/factory-packet` first, then record the provided capture URL/page as the base video.
 
+Default Template1 freezes highlighted chat from browser-visible `artifacts.chatCueTiming` source frames; playback speed only changes output timing, never the detected cue frame.
+
 Model personas may use vendor/model identity and observed behavior, but never racial caricature, mocked accents, slurs, or nationality as the punchline.
 
 Default renderer direction is Remotion for code-owned templates; Creatomate or Shotstack are acceptable if speed-to-MVP matters more than local control.

@@ -38,7 +38,8 @@ This repo now includes a local web app for the first vertical slice:
 3. Normalize the packet transcript/highlights into a quote job.
 4. Generate structured edit recipe variants.
 5. Record the replay page in a `1080x1920` Playwright viewport.
-6. Render `narrator_quote_punchline` with Remotion.
+6. Capture browser-visible chat cue frames during recording so template freezes pin to the actual highlighted row, independent of playback speed.
+7. Render `narrator_quote_punchline` with Remotion.
 
 Run it:
 
@@ -75,6 +76,8 @@ npm run record:clip -- --job-id <jobId>
 npm run render:recipe -- --job-id <jobId> --variant v1
 npm run check
 ```
+
+`npm run check` includes a Playwright validation for Default Template1 that rejects freezes from clipped/preloaded transcript text and verifies 1x, 2x, 16x, and 32x playback speeds all map the highlighted read back to the same browser-visible cue frame.
 
 The MVP expects Clankerfights to expose both `GET /api/clips/:id/factory-packet`
 and stable factory playback at `/?clip=:id&factory=1`. The current integration

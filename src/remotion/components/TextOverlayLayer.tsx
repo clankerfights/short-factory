@@ -37,9 +37,7 @@ export function TextOverlayLayer({ layer }: { layer: TextOverlayLayerModel }) {
         fontWeight: layer.style.weight,
         textAlign: layer.style.align ?? "left",
         textTransform: layer.style.textTransform,
-        textShadow: layer.style.shadow
-          ? "0 8px 0 rgba(0,0,0,0.95), 0 18px 32px rgba(0,0,0,0.35)"
-          : undefined,
+        textShadow: layer.style.shadow ? textShadowForLayer(layer) : undefined,
         WebkitTextStroke:
           layer.style.strokeColor && layer.style.strokeWidth
             ? `${layer.style.strokeWidth}px ${layer.style.strokeColor}`
@@ -53,6 +51,13 @@ export function TextOverlayLayer({ layer }: { layer: TextOverlayLayerModel }) {
         : emphasize(layer.text, layer.emphasis)}
     </FrameBox>
   );
+}
+
+function textShadowForLayer(layer: TextOverlayLayerModel): string {
+  if (layer.id === "opening-caption") {
+    return "0 10px 24px rgba(0,0,0,0.38)";
+  }
+  return "0 8px 0 rgba(0,0,0,0.95), 0 18px 32px rgba(0,0,0,0.35)";
 }
 
 function accentFirstWord(text: string, accent: string) {

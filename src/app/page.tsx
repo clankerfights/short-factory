@@ -5,7 +5,7 @@ import type { FactoryJob } from "../lib/types";
 
 const DEFAULT_TEMPLATE_ID = "default-template1";
 const DEFAULT_CLIP_PLAYBACK_SPEED = 2;
-const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 2, 3, 4, 6, 8, 10, 16] as const;
+const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 2, 3, 4, 6, 8, 10, 16, 32] as const;
 
 type ApiJobResponse = {
   job?: FactoryJob;
@@ -63,6 +63,7 @@ export default function Home() {
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    requestEditorReadyNotificationPermission();
     setBusy(true);
     setError(null);
 
@@ -91,7 +92,8 @@ export default function Home() {
       const renderedJob = await runPipelineStep(recordedJob, "raw-render");
 
       setStatus("Opening the editor with the selected template...");
-      window.location.assign(`/jobs/${renderedJob.id}/edit`);
+      prepareEditorReadyNotification(renderedJob);
+      window.location.assign(`/jobs/${renderedJob.id}/edit?notify=ready`);
     } catch (error) {
       setBusy(false);
       setStatus(null);
@@ -195,4 +197,30 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function prepareEditorReadyNotification(job: FactoryJob): void {
+  requestEditorReadyNotificationPermission();
+  try {
+    window.sessionStorage.setItem(
+      editorReadyNotificationKey(job.id),
+      JSON.stringify({
+        jobId: job.id,
+        game: job.quoteJob.game,
+        createdAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Session storage is a nice-to-have bridge between the launch page and editor.
+  }
+}
+
+function requestEditorReadyNotificationPermission(): void {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "default") return;
+  void Notification.requestPermission().catch(() => undefined);
+}
+
+function editorReadyNotificationKey(jobId: string): string {
+  return `short-factory:editor-ready:${jobId}`;
 }

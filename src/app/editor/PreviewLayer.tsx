@@ -111,9 +111,7 @@ export function PreviewLayer({
           lineHeight: layer.style.lineHeight,
           textTransform: layer.style.textTransform,
           textAlign: layer.style.align,
-          textShadow: layer.style.shadow
-            ? `0 ${canvasUnit(8, canvas)} 0 rgba(0,0,0,0.95), 0 ${canvasUnit(18, canvas)} ${canvasUnit(32, canvas)} rgba(0,0,0,0.35)`
-            : undefined,
+          textShadow: layer.style.shadow ? previewTextShadow(layer, canvas) : undefined,
           WebkitTextStroke:
             layer.style.strokeColor && layer.style.strokeWidth
               ? `${canvasUnit(layer.style.strokeWidth, canvas)} ${layer.style.strokeColor}`
@@ -134,6 +132,16 @@ export function PreviewLayer({
     );
   }
   return null;
+}
+
+function previewTextShadow(
+  layer: EditLayer,
+  canvas: EditComposition["canvas"],
+): string {
+  if (layer.id === "opening-caption") {
+    return `0 ${canvasUnit(10, canvas)} ${canvasUnit(24, canvas)} rgba(0,0,0,0.38)`;
+  }
+  return `0 ${canvasUnit(8, canvas)} 0 rgba(0,0,0,0.95), 0 ${canvasUnit(18, canvas)} ${canvasUnit(32, canvas)} rgba(0,0,0,0.35)`;
 }
 
 function canvasUnit(value: number, canvas: EditComposition["canvas"]): string {
