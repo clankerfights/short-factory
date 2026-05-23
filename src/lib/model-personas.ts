@@ -186,3 +186,16 @@ export function personaForSpeaker(speaker?: string): ModelPersona | undefined {
 export function modelIdForSpeaker(speaker?: string): string | undefined {
   return personaForSpeaker(speaker)?.model;
 }
+
+export function shortModelNameForSpeaker(speaker?: string): string | undefined {
+  const persona = personaForSpeaker(speaker);
+  if (persona) return persona.id === "hy3" ? "Hy3" : titleCaseModelName(persona.id);
+  const normalized = speaker?.trim();
+  if (!normalized) return undefined;
+  const [firstToken] = normalized.split(/[-_\s/]+/);
+  return firstToken || normalized;
+}
+
+function titleCaseModelName(value: string): string {
+  return value.slice(0, 1).toUpperCase() + value.slice(1);
+}

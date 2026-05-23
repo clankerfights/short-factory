@@ -197,12 +197,19 @@ async function validateDefaultTemplate1FromFactoryPacket(): Promise<void> {
     const highlightSpeech = composition.layers.find(
       (layer) => layer.id === "tts-highlight-42",
     );
+    const introModelLabel = composition.layers.find(
+      (layer) => layer.id === "intro-speaker-model-label",
+    );
     const outro = composition.layers.find((layer) => layer.id === "outro-cta");
     assert.ok(baseLayer);
     assert.equal(baseLayer.kind, "video-source");
     assert.equal(openingCaption?.time.duration, baseLayer?.time.start);
     assert.equal(highlightSpeech?.kind, "tts");
     assert.equal(highlightSpeech?.time.start, baseLayer?.time.start);
+    assert.equal(introModelLabel?.kind, "text");
+    if (introModelLabel?.kind === "text") {
+      assert.equal(introModelLabel.text, "Qwen\nplays sketchcode");
+    }
     assert.ok(outro);
     assert.ok(outro.time.start > baseLayer.time.start);
 
