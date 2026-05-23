@@ -13,7 +13,7 @@ import { packetMessageClipTiming } from "./normalize-clip";
 import { parseClipFactoryPacketWire } from "./schemas";
 import { generateOpenAiSpeech } from "./tts";
 import type { ClipFactoryPacketWire, EditRecipeVariant, FactoryJob } from "./types";
-import { modelIdForSpeaker } from "./model-personas";
+import { shortModelNameForSpeaker } from "./model-personas";
 import { voiceForSpeaker } from "./voice-registry";
 
 export const DEFAULT_TEMPLATE1_ID = "default-template1";
@@ -59,8 +59,9 @@ export async function applyDefaultTemplate1(
     ? highlightedFromTranscript
     : sortChatMessages(job.quoteJob.highlightedMessages);
   const finalHighlightedMessage = highlighted[highlighted.length - 1];
-  const introFace = botFaceForSpeaker(finalHighlightedMessage?.speaker ?? variant.speaker);
-  const introModelId = modelIdForSpeaker(finalHighlightedMessage?.speaker ?? variant.speaker);
+  const introSpeaker = finalHighlightedMessage?.speaker ?? variant.speaker;
+  const introFace = botFaceForSpeaker(introSpeaker);
+  const introModelName = shortModelNameForSpeaker(introSpeaker);
   const sourceDurationSeconds = Math.max(
     baseSourceDurationSeconds,
     finalHighlightedMessage
@@ -209,7 +210,7 @@ export async function applyDefaultTemplate1(
     ...introFaceLayer({
       src: introFace?.src,
       duration: introFrames,
-      modelId: introModelId,
+      modelName: introModelName,
       game: job.quoteJob.game,
     }),
     ...faceLayers,
@@ -352,7 +353,7 @@ export type HighlightFreezeReadTiming = {
 function introFaceLayer(args: {
   src: string | undefined;
   duration: number;
-  modelId?: string;
+  modelName?: string;
   game: string;
 }): EditLayer[] {
   if (!args.src) return [];
@@ -368,18 +369,18 @@ function introFaceLayer(args: {
       fit: "contain",
     },
   ];
-  if (args.modelId) {
+  if (args.modelName) {
     layers.push({
       id: "intro-speaker-model-label",
       kind: "text",
       name: "Final speaker model label",
       time: { start: 0, duration: args.duration },
-      text: `${args.modelId}\nplays ${args.game}`,
+      text: `${args.modelName}\nplays ${args.game}`,
       box: { x: 96, y: 1512, width: 888, height: 210 },
       zIndex: 30,
       style: {
         fontFamily: TIKTOK_HOOK_FONT,
-        fontSize: fitIntroModelFontSize(args.modelId),
+        fontSize: fitIntroModelFontSize(args.modelName),
         lineHeight: 1.05,
         weight: 900,
         color: "#090909",
