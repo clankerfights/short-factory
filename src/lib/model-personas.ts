@@ -175,11 +175,11 @@ export const MODEL_PERSONAS: ModelPersona[] = [
 export function personaForSpeaker(speaker?: string): ModelPersona | undefined {
   const normalized = speaker?.trim().toLowerCase();
   if (!normalized) return undefined;
-  if (NARRATOR_PERSONA.matchers.some((matcher) => normalized.includes(matcher))) {
+  if (NARRATOR_PERSONA.matchers.some((matcher) => normalized === matcher)) {
     return NARRATOR_PERSONA;
   }
   return MODEL_PERSONAS.find((persona) =>
-    persona.matchers.some((matcher) => normalized.includes(matcher)),
+    persona.matchers.some((matcher) => normalized === matcher),
   );
 }
 
