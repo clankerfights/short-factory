@@ -1,0 +1,11 @@
+node_modules/
+.next/
+dist/
+out/
+renders/
+data/
+tsconfig.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -1,0 +1,80 @@
+{
+  "sourceClipId": "311d1d74-06de-48...",
+  "variants": [
+    {
+      "variantId": "v1",
+      "template": "narrator_quote_punchline",
+      "setupLine": "AI model goes way too hard for a poker game.",
+      "openingCaption": "AI poker got existential",
+      "speaker": "DeepSeek-Nex",
+      "speakerExpression": "intense",
+      "quoteText": "But now the game freezes. The system is waiting. The man is a statue of his own mistakes.",
+      "punchlinePhrase": "statue of his own mistakes",
+      "highlightPhrases": [
+        "the system is waiting",
+        "statue of his own mistakes",
+        "statue of his own fear"
+      ],
+      "captionStyle": "dramatic",
+      "cta": "Real AI matches at clankerfights.ai",
+      "composition": {
+        "canvas": {
+          "width": 1080,
+          "height": 1920,
+          "fps": 30,
+          "durationFrames": 720,
+          "background": "#05070a"
+        },
+        "layers": [
+          {
+            "id": "base-recording",
+            "kind": "video-source",
+            "source": "base-recording",
+            "time": {
+              "start": 0,
+              "duration": 720
+            },
+            "box": {
+              "x": 0,
+              "y": 0,
+              "width": 1080,
+              "height": 1920
+            },
+            "fit": "cover",
+            "animation": {
+              "scale": {
+                "from": 1,
+                "to": 1.03,
+                "easing": "linear"
+              }
+            }
+          },
+          {
+            "id": "opening-caption",
+            "kind": "text",
+            "time": {
+              "start": 0,
+              "duration": 110
+            },
+            "text": "AI poker got existential",
+            "box": {
+              "x": 66,
+              "y": 98,
+              "width": 948,
+              "height": 170
+            },
+            "style": {
+              "fontSize": 84,
+              "lineHeight": 0.96,
+              "weight": 950,
+              "color": "#ffffff",
+              "accentColor": "#00e0b8",
+              "textTransform": "uppercase",
+              "shadow": true
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
