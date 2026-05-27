@@ -19,6 +19,29 @@ export const renderJobRequestSchema = z.object({
   saveAsPath: z.string().trim().optional(),
 });
 
+export const factoryVideoWorkflowSchema = z.object({
+  record: z.boolean().default(true),
+  renderRaw: z.boolean().default(false),
+  renderVariants: z.array(z.string().trim().min(1)).default(["v1"]),
+  durationSeconds: z.number().min(5).max(90).optional(),
+  overwrite: z.boolean().default(false),
+});
+
+const defaultFactoryVideoWorkflow = {
+  record: true,
+  renderRaw: false,
+  renderVariants: ["v1"],
+  overwrite: false,
+};
+
+export const factoryVideoCreateRequestSchema = createJobRequestSchema.extend({
+  workflow: factoryVideoWorkflowSchema.default(defaultFactoryVideoWorkflow),
+});
+
+export const factoryVideoRunWorkflowRequestSchema = factoryVideoWorkflowSchema.default(
+  defaultFactoryVideoWorkflow,
+);
+
 export const renderTargetRequestSchema = z.object({
   suggestedName: z.string().trim().optional(),
 });

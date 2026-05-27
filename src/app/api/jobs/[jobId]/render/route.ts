@@ -1,8 +1,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { readFactoryJob, saveFactoryJob } from "../../../../../lib/job-store";
-import { runNpmScript } from "../../../../../lib/run-script";
+import {
+  FactoryPipelineError,
+  renderRecipeFactoryJob,
+} from "../../../../../lib/factory-pipeline";
 import { renderJobRequestSchema } from "../../../../../lib/schemas";
 
 export const runtime = "nodejs";
@@ -12,23 +14,12 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ jobId: string }> },
 ) {
-  const { jobId } = await context.params;
-  const job = await readFactoryJob(jobId);
-
   try {
+    const { jobId } = await context.params;
     const body = renderJobRequestSchema.parse(await optionalJson(request));
-    if (!job.artifacts.baseRecordingPath) {
-      throw new Error("Record the base clip before rendering a recipe variant.");
-    }
-
-    await runNpmScript("render:recipe", [
-      "--job-id",
-      job.id,
-      "--variant",
-      body.variantId,
-    ]);
-
-    const renderedJob = await readFactoryJob(job.id);
+    const renderedJob = await renderRecipeFactoryJob(jobId, {
+      variantId: body.variantId,
+    });
     let savedTo: string | undefined;
     if (body.saveAsPath) {
       savedTo = await copyRenderedMp4(renderedJob.artifacts.renderedVideoPath, body.saveAsPath);
@@ -36,10 +27,14 @@ export async function POST(
 
     return NextResponse.json({ job: renderedJob, savedTo });
   } catch (error) {
-    job.status.render = "failed";
-    job.artifacts.error = error instanceof Error ? error.message : "Unknown error";
-    await saveFactoryJob(job);
-    return NextResponse.json({ error: job.artifacts.error, job }, { status: 500 });
+    const job = error instanceof FactoryPipelineError ? error.job : undefined;
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unknown error",
+        job,
+      },
+      { status: 500 },
+    );
   }
 }
 
