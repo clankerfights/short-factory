@@ -93,7 +93,8 @@ From a selected Watch archive chunk:
 For `watchArchiveSelection`, Short Factory posts the `createClipRequest` to
 Clankerfights `POST /internal/clips/automated`, then fetches the resulting
 `GET /api/clips/:id/factory-packet`. Agents own scoring and selection; this API
-only preserves the selected window and produces the MP4 artifacts.
+only preserves the selected window and produces the MP4 artifacts. Selected
+windows and explicit recording durations are capped at 5 minutes.
 
 Useful workflow forms:
 

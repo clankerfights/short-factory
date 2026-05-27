@@ -3,6 +3,8 @@ import type { ClipFactoryPacketWire } from "./types";
 
 const finiteNumberSchema = z.number().finite();
 const clipReferenceSchema = z.string().trim().min(1);
+export const MAX_FACTORY_VIDEO_DURATION_SECONDS = 5 * 60;
+const MAX_FACTORY_VIDEO_DURATION_MS = MAX_FACTORY_VIDEO_DURATION_SECONDS * 1000;
 
 export const createJobRequestSchema = z.object({
   clipUrl: clipReferenceSchema,
@@ -14,7 +16,11 @@ export const createJobRequestSchema = z.object({
 });
 
 export const recordJobRequestSchema = z.object({
-  durationSeconds: z.number().min(5).max(90).optional(),
+  durationSeconds: z
+    .number()
+    .min(5)
+    .max(MAX_FACTORY_VIDEO_DURATION_SECONDS)
+    .optional(),
 });
 
 export const renderJobRequestSchema = z.object({
@@ -26,7 +32,11 @@ export const factoryVideoWorkflowSchema = z.object({
   record: z.boolean().default(true),
   renderRaw: z.boolean().default(false),
   renderVariants: z.array(z.string().trim().min(1)).default(["v1"]),
-  durationSeconds: z.number().min(5).max(90).optional(),
+  durationSeconds: z
+    .number()
+    .min(5)
+    .max(MAX_FACTORY_VIDEO_DURATION_SECONDS)
+    .optional(),
   overwrite: z.boolean().default(false),
 });
 
@@ -59,6 +69,13 @@ export const internalAutomatedClipRequestSchema = z
       context.addIssue({
         code: "custom",
         message: "endMs must be greater than startMs.",
+        path: ["endMs"],
+      });
+    }
+    if (value.endMs - value.startMs > MAX_FACTORY_VIDEO_DURATION_MS) {
+      context.addIssue({
+        code: "custom",
+        message: "watchArchiveSelection clips can be at most 5 minutes.",
         path: ["endMs"],
       });
     }

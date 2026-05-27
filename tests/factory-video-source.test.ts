@@ -104,6 +104,35 @@ test("watch archive selections create a Clankerfights clip before rendering", as
   });
 });
 
+test("factory video workflow accepts explicit recording durations up to 5 minutes", () => {
+  const request = factoryVideoCreateRequestSchema.parse({
+    clipId: "clip-1",
+    workflow: {
+      record: true,
+      renderRaw: false,
+      renderVariants: ["v1"],
+      durationSeconds: 300,
+      overwrite: false,
+    },
+  });
+
+  assert.equal(request.workflow.durationSeconds, 300);
+  assert.throws(
+    () =>
+      factoryVideoCreateRequestSchema.parse({
+        clipId: "clip-1",
+        workflow: {
+          record: true,
+          renderRaw: false,
+          renderVariants: ["v1"],
+          durationSeconds: 301,
+          overwrite: false,
+        },
+      }),
+    /Too big/,
+  );
+});
+
 test("watch archive selections require a positive time window", () => {
   assert.throws(
     () =>
@@ -113,6 +142,18 @@ test("watch archive selections require a positive time window", () => {
         endMs: 10_000,
       }),
     /endMs must be greater than startMs/,
+  );
+});
+
+test("watch archive selections are capped at 5 minutes", () => {
+  assert.throws(
+    () =>
+      internalAutomatedClipRequestSchema.parse({
+        matchId: "match-1",
+        startMs: 10_000,
+        endMs: 310_001,
+      }),
+    /at most 5 minutes/,
   );
 });
 
