@@ -24,6 +24,10 @@ async function main() {
 
   job.status.render = "complete";
   job.artifacts.renderedVideoPath = renderedPath;
+  job.artifacts.renderedVariants = {
+    ...(job.artifacts.renderedVariants ?? {}),
+    [variantId]: renderedPath,
+  };
   delete job.artifacts.error;
   await saveFactoryJob(job);
   console.log(renderedPath);

@@ -217,6 +217,7 @@ export type FactoryJob = {
     rawVideoPath?: string;
     factoryPacketPath?: string;
     renderedVideoPath?: string;
+    renderedVariants?: Record<string, string>;
     error?: string;
   };
 };

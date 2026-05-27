@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { readFactoryJob, saveFactoryJob } from "../../../../../lib/job-store";
-import { runNpmScript } from "../../../../../lib/run-script";
+import {
+  FactoryPipelineError,
+  recordFactoryJob,
+} from "../../../../../lib/factory-pipeline";
 import { recordJobRequestSchema } from "../../../../../lib/schemas";
 
 export const runtime = "nodejs";
@@ -10,24 +12,22 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ jobId: string }> },
 ) {
-  const { jobId } = await context.params;
-  const job = await readFactoryJob(jobId);
-
   try {
+    const { jobId } = await context.params;
     const body = recordJobRequestSchema.parse(await optionalJson(request));
-    await runNpmScript("record:clip", [
-      "--job-id",
-      job.id,
-      "--duration",
-      String(body.durationSeconds ?? job.quoteJob.durationSeconds),
-    ]);
-
-    return NextResponse.json({ job: await readFactoryJob(job.id) });
+    const job = await recordFactoryJob(jobId, {
+      durationSeconds: body.durationSeconds,
+    });
+    return NextResponse.json({ job });
   } catch (error) {
-    job.status.recording = "failed";
-    job.artifacts.error = error instanceof Error ? error.message : "Unknown error";
-    await saveFactoryJob(job);
-    return NextResponse.json({ error: job.artifacts.error, job }, { status: 500 });
+    const job = error instanceof FactoryPipelineError ? error.job : undefined;
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unknown error",
+        job,
+      },
+      { status: 500 },
+    );
   }
 }
 

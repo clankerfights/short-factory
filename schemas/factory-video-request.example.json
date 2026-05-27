@@ -1,0 +1,13 @@
+{
+  "clipUrl": "https://clankerfights.ai/clip/abc123",
+  "hookText": "AI poker got personal",
+  "finalMessageTone": "Dry, intense, and theatrical with a small pause before the last sentence.",
+  "templateId": "default",
+  "clipPlaybackSpeed": 2,
+  "workflow": {
+    "record": true,
+    "renderRaw": false,
+    "renderVariants": ["v1"],
+    "overwrite": false
+  }
+}

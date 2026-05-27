@@ -9,6 +9,7 @@ Start with the canonical plan:
 - [Quote Factory Plan](docs/QUOTE_FACTORY_PLAN.md)
 - [Clankerfights Integration](docs/CLANKERFIGHTS_INTEGRATION.md)
 - [Factory Architecture](docs/ARCHITECTURE.md)
+- [Factory Video API](docs/FACTORY_API.md)
 
 ## Current Scope
 
@@ -75,6 +76,14 @@ Useful scripts:
 npm run record:clip -- --job-id <jobId>
 npm run render:recipe -- --job-id <jobId> --variant v1
 npm run check
+```
+
+Agent-facing API:
+
+```bash
+curl -X POST http://localhost:3000/api/factory/videos \
+  -H "content-type: application/json" \
+  --data @schemas/factory-video-request.example.json
 ```
 
 `npm run check` includes a Playwright validation for the Default template that rejects freezes from clipped/preloaded transcript text and verifies 1x, 2x, 16x, and 32x playback speeds all map the highlighted read back to the same browser-visible cue frame.
