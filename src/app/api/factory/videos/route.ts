@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { ClankerfightsApiError } from "../../../../lib/clankerfights";
 import {
-  createFactoryJobFromClip,
+  createFactoryJobForVideo,
   FactoryPipelineError,
   runFactoryWorkflow,
 } from "../../../../lib/factory-pipeline";
@@ -33,22 +34,26 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = factoryVideoCreateRequestSchema.parse(await request.json());
-    const { workflow, ...createJobInput } = body;
-    const job = await createFactoryJobFromClip(createJobInput);
-    const finishedJob = await runFactoryWorkflow(job, workflow);
+    const job = await createFactoryJobForVideo(body);
+    const finishedJob = await runFactoryWorkflow(job, body.workflow);
 
     return NextResponse.json(buildFactoryVideoResponse(request, finishedJob), {
       status: 201,
     });
   } catch (error) {
     const failedJob = error instanceof FactoryPipelineError ? error.job : undefined;
+    const status = error instanceof FactoryPipelineError
+      ? 500
+      : error instanceof ClankerfightsApiError
+        ? 502
+        : 400;
     return NextResponse.json(
       {
         apiVersion: FACTORY_API_VERSION,
         error: error instanceof Error ? error.message : "Unknown error",
         ...(failedJob ? { video: buildFactoryVideoResponse(request, failedJob) } : {}),
       },
-      { status: error instanceof FactoryPipelineError ? 500 : 400 },
+      { status },
     );
   }
 }

@@ -154,11 +154,47 @@ export type ClipFactoryPacketWire = {
   manifest?: unknown;
 };
 
+export type InternalAutomatedClipMomentType =
+  | "automated"
+  | "highlight"
+  | "funny"
+  | "drama";
+
+export type InternalAutomatedClipRequest = {
+  matchId: string;
+  startMs: number;
+  endMs: number;
+  title?: string | null;
+  momentScore?: number;
+  momentType?: InternalAutomatedClipMomentType;
+  highlightedChatIds?: number[];
+};
+
+export type InternalAutomatedClipResult = {
+  version: number;
+  clipId: string;
+  url: string;
+  matchId: string;
+};
+
+export type FactoryVideoSourceSnapshot =
+  | {
+      kind: "clip";
+      clipId?: string;
+      clipUrl?: string;
+    }
+  | {
+      kind: "watchArchiveSelection";
+      createClipRequest: InternalAutomatedClipRequest;
+      automatedClip: InternalAutomatedClipResult;
+    };
+
 export type QuoteJob = {
   clipId: string;
   clipUrl: string;
   playbackUrl: string;
   game: string;
+  source?: FactoryVideoSourceSnapshot;
   speaker: string;
   hookText?: string;
   toneHint?: string;

@@ -1,21 +1,50 @@
-import { normalizeClipInput } from "./clip-url";
-import { parseClipFactoryPacketWire } from "./schemas";
-import type { ClipDetailWire, ClipFactoryPacketWire } from "./types";
+import { clankerfightsBaseUrl, normalizeClipInput } from "./clip-url";
+import {
+  internalAutomatedClipResultSchema,
+  parseClipFactoryPacketWire,
+} from "./schemas";
+import type {
+  ClipDetailWire,
+  ClipFactoryPacketWire,
+  InternalAutomatedClipRequest,
+  InternalAutomatedClipResult,
+} from "./types";
 
-export async function fetchClipDetail(clipUrlOrId: string): Promise<{
+type FetchLike = typeof fetch;
+type QueryValue = string | number | boolean | null | undefined;
+type WatchArchiveQueryInput =
+  | URLSearchParams
+  | Iterable<readonly [string, string]>
+  | Record<string, QueryValue>;
+
+export class ClankerfightsApiError extends Error {
+  readonly status: number;
+  readonly resource: string;
+
+  constructor(resource: string, status: number, detail: string) {
+    const suffix = detail.trim() ? `: ${detail.trim().slice(0, 500)}` : "";
+    super(`Clankerfights ${resource} returned ${status}${suffix}`);
+    this.name = "ClankerfightsApiError";
+    this.status = status;
+    this.resource = resource;
+  }
+}
+
+export async function fetchClipDetail(
+  clipUrlOrId: string,
+  options: { fetchFn?: FetchLike } = {},
+): Promise<{
   detail: ClipDetailWire;
   source: ReturnType<typeof normalizeClipInput>;
 }> {
   const source = normalizeClipInput(clipUrlOrId);
-  const response = await fetch(source.apiUrl, {
+  const response = await (options.fetchFn ?? fetch)(source.apiUrl, {
     headers: clankerfightsHeaders(),
     cache: "no-store",
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Clankerfights API returned ${response.status} for clip ${source.clipId}.`,
-    );
+    throw await clankerfightsError(response, `clip ${source.clipId}`);
   }
 
   return {
@@ -24,19 +53,23 @@ export async function fetchClipDetail(clipUrlOrId: string): Promise<{
   };
 }
 
-export async function fetchClipFactoryPacket(clipUrlOrId: string): Promise<{
+export async function fetchClipFactoryPacket(
+  clipUrlOrId: string,
+  options: { fetchFn?: FetchLike } = {},
+): Promise<{
   packet: ClipFactoryPacketWire;
   source: ReturnType<typeof normalizeClipInput>;
 }> {
   const source = normalizeClipInput(clipUrlOrId);
-  const response = await fetch(source.factoryPacketUrl, {
+  const response = await (options.fetchFn ?? fetch)(source.factoryPacketUrl, {
     headers: clankerfightsHeaders(),
     cache: "no-store",
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Clankerfights factory packet returned ${response.status} for clip ${source.clipId}. Update Clankerfights or highlight a valid clip first.`,
+    throw await clankerfightsError(
+      response,
+      `factory packet for clip ${source.clipId}`,
     );
   }
 
@@ -46,8 +79,58 @@ export async function fetchClipFactoryPacket(clipUrlOrId: string): Promise<{
   };
 }
 
-function clankerfightsHeaders(): HeadersInit {
-  const headers: HeadersInit = {
+export function buildWatchArchiveUrl(
+  query: WatchArchiveQueryInput,
+  baseUrl = clankerfightsBaseUrl(),
+): string {
+  const url = new URL("/api/watch/archive", baseUrl);
+  for (const [key, value] of queryEntries(query)) {
+    if (value !== null && value !== undefined && String(value).trim() !== "") {
+      url.searchParams.append(key, String(value));
+    }
+  }
+  return url.toString();
+}
+
+export async function fetchWatchArchive(
+  query: WatchArchiveQueryInput,
+  options: { fetchFn?: FetchLike } = {},
+): Promise<unknown> {
+  const response = await (options.fetchFn ?? fetch)(buildWatchArchiveUrl(query), {
+    headers: clankerfightsHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw await clankerfightsError(response, "watch archive");
+  }
+
+  return response.json();
+}
+
+export async function createAutomatedClipFromSelection(
+  request: InternalAutomatedClipRequest,
+  options: { fetchFn?: FetchLike } = {},
+): Promise<InternalAutomatedClipResult> {
+  const response = await (options.fetchFn ?? fetch)(
+    new URL("/internal/clips/automated", clankerfightsBaseUrl()),
+    {
+      method: "POST",
+      headers: clankerfightsJsonHeaders(),
+      body: JSON.stringify(request),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw await clankerfightsError(response, "automated clip");
+  }
+
+  return internalAutomatedClipResultSchema.parse(await response.json());
+}
+
+export function clankerfightsHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
     accept: "application/json",
   };
 
@@ -55,5 +138,34 @@ function clankerfightsHeaders(): HeadersInit {
     headers.authorization = `Bearer ${process.env.CLANKERFIGHTS_API_TOKEN}`;
   }
 
+  const internalSecret =
+    process.env.CLANKERFIGHTS_ADMIN_SECRET ?? process.env.ADMIN_SECRET;
+  if (internalSecret) {
+    headers["x-internal-secret"] = internalSecret;
+  }
+
   return headers;
+}
+
+function clankerfightsJsonHeaders(): Record<string, string> {
+  return {
+    ...clankerfightsHeaders(),
+    "content-type": "application/json",
+  };
+}
+
+function queryEntries(
+  query: WatchArchiveQueryInput,
+): Iterable<readonly [string, QueryValue]> {
+  if (query instanceof URLSearchParams) return query.entries();
+  if (Symbol.iterator in query) return query;
+  return Object.entries(query);
+}
+
+async function clankerfightsError(
+  response: Response,
+  resource: string,
+): Promise<ClankerfightsApiError> {
+  const detail = await response.text();
+  return new ClankerfightsApiError(resource, response.status, detail);
 }

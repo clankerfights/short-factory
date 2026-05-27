@@ -1,11 +1,17 @@
 import path from "node:path";
 import type { z } from "zod";
-import { fetchClipFactoryPacket } from "./clankerfights";
+import {
+  createAutomatedClipFromSelection,
+  fetchClipFactoryPacket,
+} from "./clankerfights";
 import { jobDirectory, readFactoryJob, saveFactoryJob, createFactoryJob } from "./job-store";
 import { normalizeFactoryPacketToQuoteJob } from "./normalize-clip";
 import { generateEditRecipe } from "./recipe-generator";
 import { runNpmScript } from "./run-script";
-import type { createJobRequestSchema } from "./schemas";
+import type {
+  createJobRequestSchema,
+  factoryVideoCreateRequestSchema,
+} from "./schemas";
 import {
   applyAutomaticTemplate,
   isBuiltInTemplateId,
@@ -16,6 +22,7 @@ import type { FactoryJob } from "./types";
 import { generateFinalMessageVoiceInstructions } from "./voice-description";
 
 export type CreateFactoryJobFromClipInput = z.infer<typeof createJobRequestSchema>;
+export type CreateFactoryVideoInput = z.infer<typeof factoryVideoCreateRequestSchema>;
 
 export type FactoryWorkflowOptions = {
   record: boolean;
@@ -37,6 +44,83 @@ export class FactoryPipelineError extends Error {
 
 export async function createFactoryJobFromClip(
   input: CreateFactoryJobFromClipInput,
+): Promise<FactoryJob> {
+  return createFactoryJobFromResolvedClip({
+    ...input,
+    source: { kind: "clip", clipUrl: input.clipUrl },
+  });
+}
+
+export async function createFactoryJobForVideo(
+  input: CreateFactoryVideoInput,
+): Promise<FactoryJob> {
+  const source = await resolveFactoryVideoClipSource(input);
+  return createFactoryJobFromResolvedClip({
+    clipUrl: source.clipUrlOrId,
+    hookText: input.hookText,
+    toneHint: input.toneHint,
+    finalMessageTone: input.finalMessageTone,
+    templateId: input.templateId,
+    clipPlaybackSpeed: input.clipPlaybackSpeed,
+    source: source.snapshot,
+  });
+}
+
+export async function resolveFactoryVideoClipSource(
+  input: CreateFactoryVideoInput,
+  options: {
+    createAutomatedClip?: typeof createAutomatedClipFromSelection;
+  } = {},
+): Promise<{
+  clipUrlOrId: string;
+  snapshot: NonNullable<FactoryJob["quoteJob"]["source"]>;
+}> {
+  if (input.source) {
+    if (input.source.kind === "clip") {
+      return clipSource(input.source.clipUrl, input.source.clipId);
+    }
+
+    const automatedClip = await (
+      options.createAutomatedClip ?? createAutomatedClipFromSelection
+    )(input.source.createClipRequest);
+    return {
+      clipUrlOrId: automatedClip.url || automatedClip.clipId,
+      snapshot: {
+        kind: "watchArchiveSelection",
+        createClipRequest: input.source.createClipRequest,
+        automatedClip,
+      },
+    };
+  }
+
+  return clipSource(input.clipUrl, input.clipId);
+}
+
+function clipSource(
+  clipUrl: string | undefined,
+  clipId: string | undefined,
+): {
+  clipUrlOrId: string;
+  snapshot: NonNullable<FactoryJob["quoteJob"]["source"]>;
+} {
+  const clipUrlOrId = clipUrl ?? clipId;
+  if (!clipUrlOrId) {
+    throw new Error("Provide a clipUrl, clipId, or watchArchiveSelection source.");
+  }
+  return {
+    clipUrlOrId,
+    snapshot: {
+      kind: "clip",
+      ...(clipId ? { clipId } : {}),
+      ...(clipUrl ? { clipUrl } : {}),
+    },
+  };
+}
+
+async function createFactoryJobFromResolvedClip(
+  input: CreateFactoryJobFromClipInput & {
+    source: NonNullable<FactoryJob["quoteJob"]["source"]>;
+  },
 ): Promise<FactoryJob> {
   const { packet, source } = await fetchClipFactoryPacket(input.clipUrl);
   const selectedTemplateId = resolveAutomaticTemplateId(input.templateId);
@@ -62,8 +146,8 @@ export async function createFactoryJobFromClip(
       })
     : undefined;
   const quoteJob = finalMessageVoiceInstructions
-    ? { ...provisionalQuoteJob, finalMessageVoiceInstructions }
-    : provisionalQuoteJob;
+    ? { ...provisionalQuoteJob, finalMessageVoiceInstructions, source: input.source }
+    : { ...provisionalQuoteJob, source: input.source };
   const editRecipe = generateEditRecipe(quoteJob);
   return createFactoryJob({ quoteJob, editRecipe });
 }

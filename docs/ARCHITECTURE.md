@@ -11,6 +11,12 @@ The factory should not be a pile of one-off video edits. It should be a small co
 
 The highest-value boundary is between Clankerfights and the factory. Clankerfights owns replay truth. The factory owns packaging.
 
+Historical discovery follows the same boundary. `GET /api/watch/archive` in
+Clankerfights owns match slicing, hidden-info projection, transcript windows,
+and clip-creation payloads. Short Factory may proxy that endpoint and may submit
+one selected `createClipRequest`, but it must not rebuild archive materialization
+or funny-moment scoring locally.
+
 ## Clankerfights Raw Materials
 
 The factory should ingest `GET /api/clips/:id/factory-packet` and preserve
@@ -26,6 +32,11 @@ these primitives:
 - capture plan, safe areas, clock map, and edit manifest
 
 The factory normalizes those into `ClipRawMaterials` in `src/lib/edit-model.ts`.
+
+Agents that start from historical Watch archive data first create a real
+Clankerfights clip through `POST /internal/clips/automated`. After that point,
+the pipeline is identical to a human-selected clip: fetch the factory packet,
+record the replay page, and render recipe variants.
 
 The raw-material packet intentionally carries both human-highlighted quote data and capture instructions:
 
