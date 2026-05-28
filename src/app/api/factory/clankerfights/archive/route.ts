@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { fetchWatchArchive } from "../../../../../lib/clankerfights";
+import {
+  ClankerfightsApiError,
+  clankerfightsCallerStatus,
+  fetchWatchArchive,
+} from "../../../../../lib/clankerfights";
 import { FACTORY_API_VERSION } from "../../../../../lib/factory-api";
 
 export const runtime = "nodejs";
@@ -16,7 +20,12 @@ export async function GET(request: Request) {
         apiVersion: FACTORY_API_VERSION,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 502 },
+      {
+        status:
+          error instanceof ClankerfightsApiError
+            ? clankerfightsCallerStatus(error)
+            : 502,
+      },
     );
   }
 }

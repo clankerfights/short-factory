@@ -147,6 +147,13 @@ export function clankerfightsHeaders(): Record<string, string> {
   return headers;
 }
 
+export function clankerfightsCallerStatus(error: ClankerfightsApiError): number {
+  if (error.status >= 400 && error.status < 500) {
+    return error.status === 401 || error.status === 403 ? 502 : error.status;
+  }
+  return 502;
+}
+
 function clankerfightsJsonHeaders(): Record<string, string> {
   return {
     ...clankerfightsHeaders(),

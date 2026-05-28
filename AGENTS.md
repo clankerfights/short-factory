@@ -16,6 +16,8 @@ Clankerfights clips are replay snapshots, not raw MP4s; ingest `GET /api/clips/:
 
 Historical replay/chat discovery is forwarded from Clankerfights `GET /api/watch/archive`; do not duplicate archive materialization in this repo.
 
+Factory routes preserve actionable Clankerfights 4xx statuses for bot debugging; auth failures still map to 502 because the factory owns the upstream secret.
+
 The Default template freezes highlighted chat from browser-visible `artifacts.chatCueTiming` source frames; playback speed only changes output timing, never the detected cue frame.
 
 Model personas may use vendor/model identity and observed behavior, but never racial caricature, mocked accents, slurs, or nationality as the punchline.

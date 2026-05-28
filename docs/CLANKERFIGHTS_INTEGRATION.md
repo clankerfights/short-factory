@@ -82,12 +82,17 @@ The response is `WatchArchiveWire`. The important per-chunk fields are:
 - `transcript`
 - `snapshot`
 - `createClipRequest`
+- `clipRequestCoversFullChunk`
+- `maxClipDurationMs`
 
 Agents score moments outside Short Factory. When a chunk is worth rendering, the
 agent sends `chunk.createClipRequest` to `POST /api/factory/videos` as
-`source.kind = "watchArchiveSelection"`. Short Factory forwards that request to
-Clankerfights `POST /internal/clips/automated`, receives the clip ID, and then
-uses the normal factory-packet ingest path.
+`source.kind = "watchArchiveSelection"`. Prefer `chunk=window` with
+`windowSeconds <= 300` for chunks whose create request spans the full chunk.
+Whole-match chunks are for broad analysis; if `clipRequestCoversFullChunk` is
+false, narrow by timestamp before rendering. Short Factory forwards the selected
+request to Clankerfights `POST /internal/clips/automated`, receives the clip ID,
+and then uses the normal factory-packet ingest path.
 
 Short Factory also exposes:
 

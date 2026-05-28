@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { ClankerfightsApiError } from "../../../../lib/clankerfights";
+import {
+  ClankerfightsApiError,
+  clankerfightsCallerStatus,
+} from "../../../../lib/clankerfights";
 import {
   createFactoryJobForVideo,
   FactoryPipelineError,
@@ -42,11 +45,12 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const failedJob = error instanceof FactoryPipelineError ? error.job : undefined;
-    const status = error instanceof FactoryPipelineError
-      ? 500
-      : error instanceof ClankerfightsApiError
-        ? 502
-        : 400;
+    const status =
+      error instanceof FactoryPipelineError
+        ? 500
+        : error instanceof ClankerfightsApiError
+          ? clankerfightsCallerStatus(error)
+          : 400;
     return NextResponse.json(
       {
         apiVersion: FACTORY_API_VERSION,

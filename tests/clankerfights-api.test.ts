@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   buildWatchArchiveUrl,
   ClankerfightsApiError,
+  clankerfightsCallerStatus,
   clankerfightsHeaders,
   createAutomatedClipFromSelection,
 } from "../src/lib/clankerfights";
@@ -129,6 +130,27 @@ test("createAutomatedClipFromSelection exposes upstream failures distinctly", as
       error instanceof ClankerfightsApiError &&
       error.status === 401 &&
       /automated clip/.test(error.message),
+  );
+});
+
+test("clankerfightsCallerStatus preserves actionable upstream client errors", () => {
+  assert.equal(
+    clankerfightsCallerStatus(
+      new ClankerfightsApiError("watch archive", 400, "bad query"),
+    ),
+    400,
+  );
+  assert.equal(
+    clankerfightsCallerStatus(
+      new ClankerfightsApiError("automated clip", 409, "outside timeline"),
+    ),
+    409,
+  );
+  assert.equal(
+    clankerfightsCallerStatus(
+      new ClankerfightsApiError("watch archive", 401, "missing secret"),
+    ),
+    502,
   );
 });
 

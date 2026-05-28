@@ -93,6 +93,11 @@ through the Watch archive without leaving the factory service:
 curl "http://localhost:3000/api/factory/clankerfights/archive?game=texas-holdem&hours=24&chunk=window&windowSeconds=300&limit=50"
 ```
 
+Use `chunk=window` with `windowSeconds` at or below 300 for render-ready chunks.
+Whole-match chunks can be useful for broad analysis; check
+`chunk.clipRequestCoversFullChunk` before assuming `chunk.createClipRequest`
+spans the entire chunk.
+
 After scoring a chunk, pass `chunk.createClipRequest` back to the factory as a
 `watchArchiveSelection`:
 

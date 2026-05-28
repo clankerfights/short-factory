@@ -38,7 +38,10 @@ The proxy does not reshape archive data. It forwards query parameters to
 `GET /api/watch/archive` and returns the same `WatchArchiveWire` response. Each
 `chunks[]` item includes transcript rows, replay-safe snapshot data, players,
 and `createClipRequest`, which is the canonical payload for minting a clip from
-that chunk.
+that chunk. Use `chunk=window` with `windowSeconds <= 300` for chunks that can
+be minted directly as full clips. Whole-match chunks may be longer than the
+clip limit; those chunks expose `clipRequestCoversFullChunk=false` when their
+ready-to-create request covers only the first capped window.
 
 ## Create And Generate
 
@@ -216,6 +219,11 @@ and include the partial video job when one exists:
   }
 }
 ```
+
+When Clankerfights rejects an archive query or selected clip window with an
+actionable client error such as `400`, `404`, or `409`, the factory preserves
+that status so agents can fix their selection. Upstream auth failures are
+reported as `502` because the factory service owns the Clankerfights secret.
 
 ## Agent Guidance
 
