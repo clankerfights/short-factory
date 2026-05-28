@@ -14,6 +14,7 @@
     "validate:default-browser": "tsx scripts/validate-default-browser.ts",
     "validate:highlight-cue-e2e": "tsx scripts/validate-highlight-cue-e2e.ts",
     "check": "npm run typecheck && npm run validate:editor && npm run validate:source-timeline-render && npm run validate:factory-packet && npm run validate:default-browser && npm run validate:highlight-cue-e2e",
+    "test": "tsx --test tests/**/*.test.ts",
     "record:clip": "tsx scripts/record-clip.ts",
     "render:raw": "tsx scripts/render-raw.ts",
     "render:recipe": "tsx scripts/render-recipe.ts"

@@ -1,8 +1,13 @@
 import { z } from "zod";
 import type { ClipFactoryPacketWire } from "./types";
 
+const finiteNumberSchema = z.number().finite();
+const clipReferenceSchema = z.string().trim().min(1);
+export const MAX_FACTORY_VIDEO_DURATION_SECONDS = 5 * 60;
+const MAX_FACTORY_VIDEO_DURATION_MS = MAX_FACTORY_VIDEO_DURATION_SECONDS * 1000;
+
 export const createJobRequestSchema = z.object({
-  clipUrl: z.string().min(1, "Paste a clip URL or clip ID."),
+  clipUrl: clipReferenceSchema,
   hookText: z.string().trim().optional(),
   finalMessageTone: z.string().trim().optional(),
   templateId: z.string().trim().optional(),
@@ -11,7 +16,11 @@ export const createJobRequestSchema = z.object({
 });
 
 export const recordJobRequestSchema = z.object({
-  durationSeconds: z.number().min(5).max(90).optional(),
+  durationSeconds: z
+    .number()
+    .min(5)
+    .max(MAX_FACTORY_VIDEO_DURATION_SECONDS)
+    .optional(),
 });
 
 export const renderJobRequestSchema = z.object({
@@ -23,7 +32,11 @@ export const factoryVideoWorkflowSchema = z.object({
   record: z.boolean().default(true),
   renderRaw: z.boolean().default(false),
   renderVariants: z.array(z.string().trim().min(1)).default(["v1"]),
-  durationSeconds: z.number().min(5).max(90).optional(),
+  durationSeconds: z
+    .number()
+    .min(5)
+    .max(MAX_FACTORY_VIDEO_DURATION_SECONDS)
+    .optional(),
   overwrite: z.boolean().default(false),
 });
 
@@ -34,9 +47,96 @@ const defaultFactoryVideoWorkflow = {
   overwrite: false,
 };
 
-export const factoryVideoCreateRequestSchema = createJobRequestSchema.extend({
-  workflow: factoryVideoWorkflowSchema.default(defaultFactoryVideoWorkflow),
+export const internalAutomatedClipMomentTypeSchema = z.enum([
+  "automated",
+  "highlight",
+  "funny",
+  "drama",
+]);
+
+export const internalAutomatedClipRequestSchema = z
+  .object({
+    matchId: z.string().trim().min(1),
+    startMs: finiteNumberSchema.min(0),
+    endMs: finiteNumberSchema.min(0),
+    title: z.string().trim().nullable().optional(),
+    momentScore: finiteNumberSchema.optional(),
+    momentType: internalAutomatedClipMomentTypeSchema.optional(),
+    highlightedChatIds: z.array(finiteNumberSchema).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.endMs <= value.startMs) {
+      context.addIssue({
+        code: "custom",
+        message: "endMs must be greater than startMs.",
+        path: ["endMs"],
+      });
+    }
+    if (value.endMs - value.startMs > MAX_FACTORY_VIDEO_DURATION_MS) {
+      context.addIssue({
+        code: "custom",
+        message: "watchArchiveSelection clips can be at most 5 minutes.",
+        path: ["endMs"],
+      });
+    }
+  });
+
+export const internalAutomatedClipResultSchema = z.object({
+  version: finiteNumberSchema,
+  clipId: z.string().min(1),
+  url: z.string().min(1),
+  matchId: z.string().min(1),
 });
+
+export const factoryVideoClipSourceSchema = z
+  .object({
+    kind: z.literal("clip"),
+    clipId: clipReferenceSchema.optional(),
+    clipUrl: clipReferenceSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (Number(Boolean(value.clipId)) + Number(Boolean(value.clipUrl)) !== 1) {
+      context.addIssue({
+        code: "custom",
+        message: "Provide exactly one of source.clipId or source.clipUrl.",
+      });
+    }
+  });
+
+export const factoryVideoWatchArchiveSelectionSourceSchema = z.object({
+  kind: z.literal("watchArchiveSelection"),
+  createClipRequest: internalAutomatedClipRequestSchema,
+});
+
+export const factoryVideoSourceSchema = z.union([
+  factoryVideoClipSourceSchema,
+  factoryVideoWatchArchiveSelectionSourceSchema,
+]);
+
+export const factoryVideoCreateRequestSchema = z
+  .object({
+    clipUrl: clipReferenceSchema.optional(),
+    clipId: clipReferenceSchema.optional(),
+    source: factoryVideoSourceSchema.optional(),
+    hookText: z.string().trim().optional(),
+    finalMessageTone: z.string().trim().optional(),
+    templateId: z.string().trim().optional(),
+    toneHint: z.string().trim().optional(),
+    clipPlaybackSpeed: z.number().min(1).max(32).optional(),
+    workflow: factoryVideoWorkflowSchema.default(defaultFactoryVideoWorkflow),
+  })
+  .superRefine((value, context) => {
+    const sourceCount =
+      Number(Boolean(value.clipUrl)) +
+      Number(Boolean(value.clipId)) +
+      Number(Boolean(value.source));
+    if (sourceCount !== 1) {
+      context.addIssue({
+        code: "custom",
+        message: "Provide exactly one clipUrl, clipId, or source.",
+      });
+    }
+  });
 
 export const factoryVideoRunWorkflowRequestSchema = factoryVideoWorkflowSchema.default(
   defaultFactoryVideoWorkflow,
@@ -45,8 +145,6 @@ export const factoryVideoRunWorkflowRequestSchema = factoryVideoWorkflowSchema.d
 export const renderTargetRequestSchema = z.object({
   suggestedName: z.string().trim().optional(),
 });
-
-const finiteNumberSchema = z.number().finite();
 
 const clipPacketSizeSchema = z.object({
   width: finiteNumberSchema.positive(),

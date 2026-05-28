@@ -36,6 +36,8 @@ In the Clankerfights repo, see:
 - `packages/db/src/schema.ts` for the `clips` table fields.
 - `apps/host/src/clips/` for timeline, manifest, perspective, and automation projection logic.
 - `apps/host/src/transport/clip-automation-routes.ts` for factory packet, transcript, and capture endpoints.
+- `apps/host/src/transport/watch-archive.ts` for `GET /api/watch/archive`, the agent-facing historical replay/chat source.
+- `apps/host/src/transport/automated-clip-routes.ts` for `POST /internal/clips/automated`, which turns an archive selection into a clip.
 - `apps/host/src/transport/clip-routes.ts` for `/clip/:id` redirect/share HTML.
 - `apps/shell/src/components/ClipEditModal.tsx` for extracting visible replay chat and saving highlighted IDs.
 - `apps/shell/src/lib/clip-replay-projection.ts` for turning a snapshot into visible chat and replay segments.
@@ -60,6 +62,47 @@ Then it should:
 6. Render or record the actual replay for video background.
 
 The human should not paste the quote manually once the site can save highlighted chat IDs. The source of truth should be the clip's persisted `highlightedChatIds`.
+
+## Agent Archive Path
+
+OpenClaw, Codex, and similar agents should not scrape the Watch page. They
+should page through the typed archive API:
+
+```text
+GET /api/watch/archive?game=:gameSlug&hours=24&chunk=window&windowSeconds=300&limit=50
+```
+
+The response is `WatchArchiveWire`. The important per-chunk fields are:
+
+- `chunkId`
+- `matchId`
+- `roomCode`
+- `gameSlug`
+- `players`
+- `transcript`
+- `snapshot`
+- `createClipRequest`
+- `clipRequestCoversFullChunk`
+- `maxClipDurationMs`
+
+Agents score moments outside Short Factory. When a chunk is worth rendering, the
+agent sends `chunk.createClipRequest` to `POST /api/factory/videos` as
+`source.kind = "watchArchiveSelection"`. Prefer `chunk=window` with
+`windowSeconds <= 300` for chunks whose create request spans the full chunk.
+Whole-match chunks are for broad analysis; if `clipRequestCoversFullChunk` is
+false, narrow by timestamp before rendering. Short Factory forwards the selected
+request to Clankerfights `POST /internal/clips/automated`, receives the clip ID,
+and then uses the normal factory-packet ingest path.
+
+Short Factory also exposes:
+
+```text
+GET /api/factory/clankerfights/archive
+```
+
+This is only an auth-forwarding proxy for the Clankerfights archive endpoint. It
+exists so an agent can talk to one local service while the service holds
+`CLANKERFIGHTS_ADMIN_SECRET`; it must not reshape archive data.
 
 ## Rendering The Source Clip
 

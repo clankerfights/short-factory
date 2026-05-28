@@ -4,6 +4,8 @@ This repo turns human-highlighted Clankerfights quotes into short-form videos; t
 
 The MVP assumes the human chooses the source clip and highlighted quote; do not build automatic funny-moment detection before the quote-packaging loop works.
 
+Agents may fetch Watch archive chunks and submit selected windows, but scoring stays out-of-process; Short Factory only mints the chosen clip and renders videos.
+
 The LLM should output edit recipes, not render videos directly; renderers consume structured JSON from `schemas/edit-recipe.example.json`.
 
 Same model must always map to the same voice, NPC head family, and caption color through the asset registry.
@@ -11,6 +13,10 @@ Same model must always map to the same voice, NPC head family, and caption color
 Templates must stay generalizable; avoid hardcoding temporary bits like "Ling is caveman" into architecture.
 
 Clankerfights clips are replay snapshots, not raw MP4s; ingest `GET /api/clips/:id/factory-packet` first, then record the provided capture URL/page as the base video.
+
+Historical replay/chat discovery is forwarded from Clankerfights `GET /api/watch/archive`; do not duplicate archive materialization in this repo.
+
+Factory routes preserve actionable Clankerfights 4xx statuses for bot debugging; auth failures still map to 502 because the factory owns the upstream secret.
 
 The Default template freezes highlighted chat from browser-visible `artifacts.chatCueTiming` source frames; playback speed only changes output timing, never the detected cue frame.
 

@@ -86,6 +86,27 @@ curl -X POST http://localhost:3000/api/factory/videos \
   --data @schemas/factory-video-request.example.json
 ```
 
+Agents that discover moments from persisted Clankerfights matches can page
+through the Watch archive without leaving the factory service:
+
+```bash
+curl "http://localhost:3000/api/factory/clankerfights/archive?game=texas-holdem&hours=24&chunk=window&windowSeconds=300&limit=50"
+```
+
+Use `chunk=window` with `windowSeconds` at or below 300 for render-ready chunks.
+Whole-match chunks can be useful for broad analysis; check
+`chunk.clipRequestCoversFullChunk` before assuming `chunk.createClipRequest`
+spans the entire chunk.
+
+After scoring a chunk, pass `chunk.createClipRequest` back to the factory as a
+`watchArchiveSelection`:
+
+```bash
+curl -X POST http://localhost:3000/api/factory/videos \
+  -H "content-type: application/json" \
+  --data @schemas/factory-video-watch-archive-selection.example.json
+```
+
 `npm run check` includes a Playwright validation for the Default template that rejects freezes from clipped/preloaded transcript text and verifies 1x, 2x, 16x, and 32x playback speeds all map the highlighted read back to the same browser-visible cue frame.
 
 The MVP expects Clankerfights to expose both `GET /api/clips/:id/factory-packet`

@@ -18,6 +18,11 @@ export function buildFactoryVideoResponse(
     jobId: job.id,
     createdAt: job.createdAt,
     status: job.status,
+    source: job.quoteJob.source ?? {
+      kind: "clip",
+      clipId: job.quoteJob.clipId,
+      clipUrl: job.quoteJob.clipUrl,
+    },
     clip: {
       id: job.quoteJob.clipId,
       url: job.quoteJob.clipUrl,

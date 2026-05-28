@@ -15,13 +15,41 @@ queue workers, CLI scripts, and future product surfaces.
   minutes because recording and Remotion rendering happen before the response.
 - The route is idempotent around artifacts by default: existing recordings and
   renders are reused unless `overwrite` is true.
+- Historical game/chat data remains owned by Clankerfights. Short Factory only
+  forwards archive queries and turns selected archive windows into clips before
+  rendering videos.
+
+## Discover Historical Moments
+
+Agents can call Clankerfights directly:
+
+```text
+GET https://clankerfights.ai/api/watch/archive?game=texas-holdem&hours=24&chunk=window&windowSeconds=300&limit=50
+```
+
+Or use Short Factory as an auth-forwarding proxy when the factory service owns
+the Clankerfights admin secret:
+
+```text
+GET /api/factory/clankerfights/archive?game=texas-holdem&hours=24&chunk=window&windowSeconds=300&limit=50
+```
+
+The proxy does not reshape archive data. It forwards query parameters to
+`GET /api/watch/archive` and returns the same `WatchArchiveWire` response. Each
+`chunks[]` item includes transcript rows, replay-safe snapshot data, players,
+and `createClipRequest`, which is the canonical payload for minting a clip from
+that chunk. Use `chunk=window` with `windowSeconds <= 300` for chunks that can
+be minted directly as full clips. Whole-match chunks may be longer than the
+clip limit; those chunks expose `clipRequestCoversFullChunk=false` when their
+ready-to-create request covers only the first capped window.
 
 ## Create And Generate
 
 `POST /api/factory/videos`
 
 Creates a quote job and runs the requested workflow. By default it records the
-base replay and renders `v1`.
+base replay and renders `v1`. The request can use an existing `clipUrl`, a bare
+`clipId`, or a selected Watch archive window.
 
 ```json
 {
@@ -38,6 +66,38 @@ base replay and renders `v1`.
   }
 }
 ```
+
+From a selected Watch archive chunk:
+
+```json
+{
+  "source": {
+    "kind": "watchArchiveSelection",
+    "createClipRequest": {
+      "matchId": "match_abc123",
+      "startMs": 1780000000000,
+      "endMs": 1780000018000,
+      "highlightedChatIds": [42],
+      "title": "AI poker got personal",
+      "momentScore": 0.91,
+      "momentType": "funny"
+    }
+  },
+  "hookText": "AI poker got personal",
+  "workflow": {
+    "record": true,
+    "renderRaw": false,
+    "renderVariants": ["v1"],
+    "overwrite": false
+  }
+}
+```
+
+For `watchArchiveSelection`, Short Factory posts the `createClipRequest` to
+Clankerfights `POST /internal/clips/automated`, then fetches the resulting
+`GET /api/clips/:id/factory-packet`. Agents own scoring and selection; this API
+only preserves the selected window and produces the MP4 artifacts. Selected
+windows and explicit recording durations are capped at 5 minutes.
 
 Useful workflow forms:
 
@@ -100,6 +160,10 @@ Returns the 50 most recent jobs as `factory.videoJob` resources.
     "recording": "complete",
     "render": "complete"
   },
+  "source": {
+    "kind": "clip",
+    "clipUrl": "https://clankerfights.ai/clip/abc123"
+  },
   "clip": {
     "id": "abc123",
     "url": "https://clankerfights.ai/clip/abc123",
@@ -156,10 +220,21 @@ and include the partial video job when one exists:
 }
 ```
 
+When Clankerfights rejects an archive query or selected clip window with an
+actionable client error such as `400`, `404`, or `409`, the factory preserves
+that status so agents can fix their selection. Upstream auth failures are
+reported as `502` because the factory service owns the Clankerfights secret.
+
 ## Agent Guidance
 
-1. Call `POST /api/factory/videos` with the clip URL and a concise hook.
-2. Read `variants[].video.url` or `artifacts.renderedVideos`.
-3. If the first call fails after creating a job, call `links.actions` with the
+1. Page through `GET /api/watch/archive` or
+   `GET /api/factory/clankerfights/archive` with `game`, `hours`, `chunk`,
+   `windowSeconds`, `limit`, and `cursor`.
+2. Score candidate moments outside Short Factory.
+3. Send the chosen `chunk.createClipRequest` to `POST /api/factory/videos` as a
+   `watchArchiveSelection`, adding `highlightedChatIds`, `title`,
+   `momentScore`, and `momentType` when useful.
+4. Read `variants[].video.url` or `artifacts.renderedVideos`.
+5. If the first call fails after creating a job, call `links.actions` with the
    missing workflow steps.
-4. Use `links.editor` only for human review or manual adjustment.
+6. Use `links.editor` only for human review or manual adjustment.
