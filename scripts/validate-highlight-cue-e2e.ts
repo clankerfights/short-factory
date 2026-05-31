@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
 import { bundle } from "@remotion/bundler";
-import { RenderInternals, renderStill, selectComposition } from "@remotion/renderer";
+import { renderStill, selectComposition } from "@remotion/renderer";
 import { normalizeClipInput } from "../src/lib/clip-url";
 import { createPhoneReplayCapturePlan } from "../src/lib/capture-plan";
 import {
@@ -31,6 +31,7 @@ import {
 import {
   recordingFrameForOutputFrame,
 } from "../src/lib/source-timeline";
+import { ffmpegSpawnEnv, resolveFfmpegPath } from "../src/lib/remotion-binaries";
 import type {
   ClipFactoryPacketWire,
   EditRecipeVariant,
@@ -748,14 +749,10 @@ function paeth(left: number, up: number, upLeft: number): number {
 }
 
 async function runFfmpeg(args: string[]): Promise<Buffer> {
-  const ffmpegPath = RenderInternals.getExecutablePath({
-    type: "ffmpeg",
-    indent: false,
-    logLevel: "error",
-    binariesDirectory: null,
-  });
+  const ffmpegPath = resolveFfmpegPath();
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpegPath, args, {
+      env: ffmpegSpawnEnv(ffmpegPath),
       stdio: ["ignore", "pipe", "pipe"],
     });
     const stdout: Buffer[] = [];
