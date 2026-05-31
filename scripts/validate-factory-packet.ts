@@ -9,6 +9,7 @@ import {
   applyDefaultTemplate,
 } from "../src/lib/default-template";
 import { generateEditRecipe } from "../src/lib/recipe-generator";
+import { DEFAULT_CLIP_PLAYBACK_SPEED } from "../src/lib/factory-defaults";
 import { jobDirectory } from "../src/lib/job-store";
 import { normalizeFactoryPacketToQuoteJob } from "../src/lib/normalize-clip";
 import { editCompositionSchema, parseClipFactoryPacketWire } from "../src/lib/schemas";
@@ -187,7 +188,7 @@ async function validateDefaultTemplateFromFactoryPacket(): Promise<void> {
     assert.equal(composition.templateVersion, DEFAULT_TEMPLATE_VERSION);
     assert.equal(composition.timelineEdits?.trim?.startFrame, 96);
     assert.equal(composition.timelineEdits?.trim?.endFrame, 180);
-    assert.equal(composition.timelineEdits?.playback?.speed, 2);
+    assert.equal(composition.timelineEdits?.playback?.speed, DEFAULT_CLIP_PLAYBACK_SPEED);
     assert.equal(composition.timelineEdits?.freezes?.[0]?.atFrame, 0);
 
     const baseLayer = composition.layers.find((layer) => layer.id === "base-recording");
