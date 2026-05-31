@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { deflateSync, inflateSync } from "node:zlib";
-import { RenderInternals } from "@remotion/renderer";
+import { ffmpegSpawnEnv, resolveFfmpegPath } from "../src/lib/remotion-binaries";
 import { renderRawClipVideo } from "../src/lib/render-recipe";
 import type { FactoryJob } from "../src/lib/types";
 
@@ -200,23 +200,24 @@ function firstPixelFromPng(png: Buffer): [number, number, number] {
     offset += 12 + length;
   }
   const inflated = inflateSync(idat);
-  const channels = colorType === 6 ? 4 : 3;
+  const channels = colorType === 0 ? 1 : colorType === 6 ? 4 : 3;
   const pixelOffset = 1;
-  if (inflated[0] !== 0 || inflated.length < pixelOffset + channels) {
+  const filter = inflated[0];
+  if (filter < 0 || filter > 4 || inflated.length < pixelOffset + channels) {
     throw new Error("Unexpected PNG filter in source timeline smoke test.");
+  }
+  if (channels === 1) {
+    const value = inflated[pixelOffset];
+    return [value, value, value];
   }
   return [inflated[pixelOffset], inflated[pixelOffset + 1], inflated[pixelOffset + 2]];
 }
 
 async function runFfmpeg(args: string[], inputFrames?: Buffer[]): Promise<Buffer> {
-  const ffmpegPath = RenderInternals.getExecutablePath({
-    type: "ffmpeg",
-    indent: false,
-    logLevel: "error",
-    binariesDirectory: null,
-  });
+  const ffmpegPath = resolveFfmpegPath();
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpegPath, args, {
+      env: ffmpegSpawnEnv(ffmpegPath),
       stdio: [inputFrames ? "pipe" : "ignore", "pipe", "pipe"],
     });
     const stdout: Buffer[] = [];
