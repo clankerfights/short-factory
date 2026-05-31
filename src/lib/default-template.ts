@@ -20,13 +20,14 @@ import { generateOpenAiSpeech } from "./tts";
 import type { ClipFactoryPacketWire, EditRecipeVariant, FactoryJob } from "./types";
 import { shortModelNameForSpeaker } from "./model-personas";
 import { voiceForSpeaker } from "./voice-registry";
+import { DEFAULT_CLIP_PLAYBACK_SPEED } from "./factory-defaults";
 
 export const DEFAULT_TEMPLATE_ID = "default";
 export const DEFAULT_TEMPLATE_NAME = "Default";
 export const DEFAULT_TEMPLATE_VERSION = 21;
 
 const DEFAULT_TEMPLATE_TIMING = {
-  gameplaySpeed: 2,
+  gameplaySpeed: DEFAULT_CLIP_PLAYBACK_SPEED,
   finalHighlightPostrollSeconds: 1.35,
 } as const;
 const OUTRO_WOOSH_SRC = "sound-effects/alexis_gaming_cam-woosh-long-cartoon-370386.mp3";
@@ -329,7 +330,8 @@ async function createTtsLayer(args: {
       await fs.writeFile(absolutePath, audio);
       durationSeconds = mp3DurationSeconds(audio) ?? durationSeconds;
       src = relativePath.replaceAll("\\", "/");
-    } catch {
+    } catch (error) {
+      if (requiresGeneratedTts()) throw error;
       src = undefined;
     }
   }
@@ -351,6 +353,10 @@ async function createTtsLayer(args: {
     artifactPath: src ? absolutePath : undefined,
     volume: 1,
   };
+}
+
+function requiresGeneratedTts(): boolean {
+  return process.env.SHORT_FACTORY_REQUIRE_TTS === "1";
 }
 
 type HighlightRead = {
@@ -598,4 +604,3 @@ function finitePositive(value: number | undefined): number | undefined {
     ? value
     : undefined;
 }
-

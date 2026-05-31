@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
-import { RenderInternals } from "@remotion/renderer";
+import { ffmpegSpawnEnv, resolveFfmpegPath } from "./remotion-binaries";
 
 export type VideoProbeRect = {
   x: number;
@@ -140,14 +140,12 @@ export function decodePng(png: Buffer): DecodedPng {
 }
 
 async function runFfmpeg(args: string[]): Promise<Buffer> {
-  const ffmpegPath = RenderInternals.getExecutablePath({
-    type: "ffmpeg",
-    indent: false,
-    logLevel: "error",
-    binariesDirectory: null,
-  });
+  const ffmpegPath = resolveFfmpegPath();
   return new Promise((resolve, reject) => {
-    const child = spawn(ffmpegPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(ffmpegPath, args, {
+      env: ffmpegSpawnEnv(ffmpegPath),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     child.stdout?.on("data", (chunk: Buffer) => stdout.push(chunk));

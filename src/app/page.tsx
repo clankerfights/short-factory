@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import type { FactoryJob } from "../lib/types";
+import { DEFAULT_CLIP_PLAYBACK_SPEED } from "../lib/factory-defaults";
 
 const DEFAULT_TEMPLATE_ID = "default";
-const DEFAULT_CLIP_PLAYBACK_SPEED = 2;
 const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 2, 3, 4, 6, 8, 10, 16, 32] as const;
 
 type ApiJobResponse = {
@@ -24,6 +24,24 @@ type ApiTemplatesResponse = {
   error?: string;
 };
 
+type FactoryVideoSummary = {
+  jobId: string;
+  createdAt: string;
+  source?: { kind?: string };
+  clip?: { game?: string };
+  variants?: Array<{
+    id: string;
+    setupLine?: string;
+    openingCaption?: string;
+  }>;
+  links?: { editor?: string };
+};
+
+type ApiFactoryVideosResponse = {
+  videos?: FactoryVideoSummary[];
+  error?: string;
+};
+
 const fallbackTemplates: TemplateOption[] = [
   {
     id: DEFAULT_TEMPLATE_ID,
@@ -40,6 +58,8 @@ export default function Home() {
   const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID);
   const [clipPlaybackSpeed, setClipPlaybackSpeed] = useState(DEFAULT_CLIP_PLAYBACK_SPEED);
   const [templates, setTemplates] = useState<TemplateOption[]>(fallbackTemplates);
+  const [factoryVideos, setFactoryVideos] = useState<FactoryVideoSummary[]>([]);
+  const [selectedFactoryVideoId, setSelectedFactoryVideoId] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,6 +68,7 @@ export default function Home() {
   useEffect(() => {
     setHydrated(true);
     void loadTemplates();
+    void loadFactoryVideos();
   }, []);
 
   async function loadTemplates() {
@@ -59,6 +80,32 @@ export default function Home() {
         setTemplateId(payload.builtInTemplates[0]?.id ?? DEFAULT_TEMPLATE_ID);
       }
     }
+  }
+
+  async function loadFactoryVideos() {
+    try {
+      const response = await fetch("/api/factory/videos", { cache: "no-store" });
+      const payload = (await response.json()) as ApiFactoryVideosResponse;
+      if (!response.ok || !payload.videos) return;
+      const automatedVideos = payload.videos.filter(
+        (video) => video.source?.kind === "watchArchiveSelection",
+      );
+      setFactoryVideos(automatedVideos);
+      setSelectedFactoryVideoId((current) =>
+        automatedVideos.some((video) => video.jobId === current)
+          ? current
+          : (automatedVideos[0]?.jobId ?? ""),
+      );
+    } catch {
+      setFactoryVideos([]);
+      setSelectedFactoryVideoId("");
+    }
+  }
+
+  function openSelectedFactoryVideo() {
+    const selected = factoryVideos.find((video) => video.jobId === selectedFactoryVideoId);
+    if (!selected) return;
+    window.location.assign(selected.links?.editor ?? `/jobs/${selected.jobId}/edit`);
   }
 
   async function createJob(event: FormEvent<HTMLFormElement>) {
@@ -121,6 +168,9 @@ export default function Home() {
   const disabled =
     hydrated &&
     (busy || !clipUrl.trim() || !hookText.trim() || !finalMessageTone.trim());
+  const selectedFactoryVideo = factoryVideos.find(
+    (video) => video.jobId === selectedFactoryVideoId,
+  );
 
   return (
     <main className="factoryHome">
@@ -129,6 +179,47 @@ export default function Home() {
           <p className="eyebrow">Clankerfights TikTok Factory</p>
           <h1>Create a short</h1>
         </header>
+
+        <section className="resumePanel">
+          <label>
+            <span>Autoclipped jobs</span>
+            <select
+              value={selectedFactoryVideoId}
+              onChange={(event) => setSelectedFactoryVideoId(event.target.value)}
+              disabled={factoryVideos.length === 0}
+            >
+              {factoryVideos.length === 0 ? (
+                <option value="">No autoclipped jobs yet</option>
+              ) : (
+                factoryVideos.map((video) => (
+                  <option value={video.jobId} key={video.jobId}>
+                    {factoryVideoOptionLabel(video)}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+          <div className="resumeBand">
+            <div className="selectedJobSummary">
+              <strong>
+                {selectedFactoryVideo ? factoryVideoLabel(selectedFactoryVideo) : "No job selected"}
+              </strong>
+              <span>
+                {selectedFactoryVideo
+                  ? `${selectedFactoryVideo.clip?.game ?? "clankerfights"} / ${formatDateTime(selectedFactoryVideo.createdAt)}`
+                  : "No saved jobs"}
+              </span>
+            </div>
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={openSelectedFactoryVideo}
+              disabled={!selectedFactoryVideo}
+            >
+              Open editor
+            </button>
+          </div>
+        </section>
 
         <form className="launchForm" onSubmit={createJob}>
           <label>
@@ -197,6 +288,36 @@ export default function Home() {
       </section>
     </main>
   );
+}
+
+function factoryVideoOptionLabel(video: FactoryVideoSummary): string {
+  return `${factoryVideoLabel(video)} - ${formatDateTime(video.createdAt)}`;
+}
+
+function factoryVideoLabel(video: FactoryVideoSummary): string {
+  const variant = video.variants?.[0];
+  return titleCase(
+    variant?.setupLine || variant?.openingCaption || `Job ${video.jobId.slice(0, 8)}`,
+  );
+}
+
+function titleCase(value: string): string {
+  return value
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function prepareEditorReadyNotification(job: FactoryJob): void {

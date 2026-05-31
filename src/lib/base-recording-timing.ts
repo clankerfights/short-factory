@@ -3,12 +3,16 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { inflateSync } from "node:zlib";
-import { getVideoMetadata, RenderInternals } from "@remotion/renderer";
 import type { BaseRecordingTiming } from "./edit-model";
 import { TIKTOK_CANVAS } from "./edit-model";
 import { normalizeBaseRecordingTiming } from "./source-timeline";
 import type { FactoryJob } from "./types";
 import { DEFAULT_REPLAY_PLAYBACK_RATE } from "./capture-plan";
+import {
+  ffmpegSpawnEnv,
+  resolveFfmpegPath,
+  resolveFfprobePath,
+} from "./remotion-binaries";
 
 const PROBE_WIDTH = 36;
 const PROBE_HEIGHT = 64;
@@ -186,8 +190,44 @@ function replayPlaybackRate(value: number | undefined): number {
 }
 
 async function readRecordedDurationFrames(videoPath: string, fps: number): Promise<number> {
-  const metadata = await getVideoMetadata(videoPath, { logLevel: "error" });
-  return Math.max(1, Math.round((metadata.durationInSeconds ?? 0) * fps));
+  const durationSeconds = await readVideoDurationSeconds(videoPath);
+  return Math.max(1, Math.round(durationSeconds * fps));
+}
+
+async function readVideoDurationSeconds(videoPath: string): Promise<number> {
+  const ffprobePath = resolveFfprobePath();
+  const args = [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "default=noprint_wrappers=1:nokey=1",
+    videoPath,
+  ];
+  const output = await new Promise<string>((resolve, reject) => {
+    const child = spawn(ffprobePath, args, {
+      env: ffmpegSpawnEnv(ffprobePath),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(Buffer.concat(stderr).toString("utf8") || `ffprobe exited ${code}`));
+        return;
+      }
+      resolve(Buffer.concat(stdout).toString("utf8"));
+    });
+  });
+  const durationSeconds = Number(output.trim());
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new Error(`Unable to read video duration from ${videoPath}.`);
+  }
+  return durationSeconds;
 }
 
 async function detectFirstMeaningfulFrame(
@@ -245,12 +285,7 @@ async function extractProbeFrames(
   fps: number,
   outputDir: string,
 ): Promise<void> {
-  const ffmpegPath = RenderInternals.getExecutablePath({
-    type: "ffmpeg",
-    indent: false,
-    logLevel: "error",
-    binariesDirectory: null,
-  });
+  const ffmpegPath = resolveFfmpegPath();
   const args = [
     "-v",
     "error",
@@ -264,7 +299,10 @@ async function extractProbeFrames(
   ];
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(ffmpegPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(ffmpegPath, args, {
+      env: ffmpegSpawnEnv(ffmpegPath),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     const stderr: Buffer[] = [];
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.on("error", reject);

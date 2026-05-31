@@ -1,0 +1,1 @@
+export const DEFAULT_CLIP_PLAYBACK_SPEED = 8;

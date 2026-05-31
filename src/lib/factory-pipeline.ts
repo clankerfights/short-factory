@@ -4,10 +4,12 @@ import {
   createAutomatedClipFromSelection,
   fetchClipFactoryPacket,
 } from "./clankerfights";
+import { clankerfightsBaseUrl } from "./clip-url";
 import { jobDirectory, readFactoryJob, saveFactoryJob, createFactoryJob } from "./job-store";
 import { normalizeFactoryPacketToQuoteJob } from "./normalize-clip";
 import { generateEditRecipe } from "./recipe-generator";
 import { runNpmScript } from "./run-script";
+import { DEFAULT_CLIP_PLAYBACK_SPEED } from "./factory-defaults";
 import type {
   createJobRequestSchema,
   factoryVideoCreateRequestSchema,
@@ -84,7 +86,9 @@ export async function resolveFactoryVideoClipSource(
       options.createAutomatedClip ?? createAutomatedClipFromSelection
     )(input.source.createClipRequest);
     return {
-      clipUrlOrId: automatedClip.url || automatedClip.clipId,
+      clipUrlOrId: automatedClip.url
+        ? resolveAutomatedClipUrl(automatedClip.url)
+        : automatedClip.clipId,
       snapshot: {
         kind: "watchArchiveSelection",
         createClipRequest: input.source.createClipRequest,
@@ -94,6 +98,10 @@ export async function resolveFactoryVideoClipSource(
   }
 
   return clipSource(input.clipUrl, input.clipId);
+}
+
+function resolveAutomatedClipUrl(url: string): string {
+  return new URL(url, clankerfightsBaseUrl()).toString();
 }
 
 function clipSource(
@@ -131,7 +139,7 @@ async function createFactoryJobFromResolvedClip(
     toneHint: input.toneHint ?? input.finalMessageTone,
     finalMessageTone: input.finalMessageTone,
     selectedTemplateId,
-    clipPlaybackSpeed: input.clipPlaybackSpeed ?? 2,
+    clipPlaybackSpeed: input.clipPlaybackSpeed ?? DEFAULT_CLIP_PLAYBACK_SPEED,
   });
   const finalMessage =
     provisionalQuoteJob.highlightedMessages[
@@ -169,6 +177,10 @@ export async function runFactoryWorkflow(
 
   if (workflow.renderRaw && (workflow.overwrite || !job.artifacts.rawVideoPath)) {
     job = await renderRawFactoryJob(job.id);
+  }
+
+  if (isAutomatedFactoryVideoJob(job)) {
+    job = await saveAutomatedEditableJob(job, editableVariantIds(job, workflow));
   }
 
   for (const variantId of workflow.renderVariants) {
@@ -279,6 +291,35 @@ export async function ensureAutomaticTemplateForVariant(
   }
 
   return job;
+}
+
+async function saveAutomatedEditableJob(
+  job: FactoryJob,
+  variantIds: readonly string[],
+): Promise<FactoryJob> {
+  try {
+    let editableJob = job;
+    for (const variantId of variantIds) {
+      editableJob = await ensureAutomaticTemplateForVariant(editableJob, variantId);
+    }
+    return readFactoryJob(editableJob.id);
+  } catch (error) {
+    throw await failJob(job, "render", error);
+  }
+}
+
+function editableVariantIds(
+  job: FactoryJob,
+  workflow: FactoryWorkflowOptions,
+): string[] {
+  const requested = workflow.renderVariants.length
+    ? workflow.renderVariants
+    : [job.editRecipe.variants[0]?.variantId];
+  return [...new Set(requested.filter((variantId): variantId is string => Boolean(variantId)))];
+}
+
+function isAutomatedFactoryVideoJob(job: FactoryJob): boolean {
+  return job.quoteJob.source?.kind === "watchArchiveSelection";
 }
 
 export function renderedVariantPath(

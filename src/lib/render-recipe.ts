@@ -5,6 +5,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 import type { FactoryJob } from "./types";
 import { TIKTOK_CANVAS, type EditComposition } from "./edit-model";
 import { ensureBaseRecordingTiming } from "./base-recording-timing";
+import { ensureRemotionBinariesDirectory } from "./remotion-binaries";
 
 export type RenderRecipeOptions = {
   job: FactoryJob;
@@ -24,8 +25,10 @@ export async function renderRecipeVariant(options: RenderRecipeOptions): Promise
 
   const baseRecordingPath = path.resolve(options.baseRecordingPath);
   const baseVideoTiming = await ensureBaseRecordingTiming(options.job, baseRecordingPath);
+  const outputLocation = path.resolve(options.outputPath);
   await syncSharedAssets(path.dirname(baseRecordingPath));
   const entryPoint = path.join(process.cwd(), "src", "remotion", "index.tsx");
+  const binariesDirectory = await ensureRemotionBinariesDirectory();
   const serveUrl = await bundle({
     entryPoint,
     publicDir: path.dirname(baseRecordingPath),
@@ -39,9 +42,9 @@ export async function renderRecipeVariant(options: RenderRecipeOptions): Promise
     serveUrl,
     id: "narrator-quote-punchline",
     inputProps,
+    binariesDirectory,
   });
 
-  const outputLocation = path.resolve(options.outputPath);
   await renderMedia({
     composition: {
       ...composition,
@@ -52,6 +55,7 @@ export async function renderRecipeVariant(options: RenderRecipeOptions): Promise
     pixelFormat: "yuv420p",
     outputLocation,
     inputProps,
+    binariesDirectory,
   });
 
   return outputLocation;
@@ -99,6 +103,7 @@ export async function renderRawClipVideo(options: {
 
   await syncSharedAssets(path.dirname(baseRecordingPath));
   const entryPoint = path.join(process.cwd(), "src", "remotion", "index.tsx");
+  const binariesDirectory = await ensureRemotionBinariesDirectory();
   const serveUrl = await bundle({
     entryPoint,
     publicDir: path.dirname(baseRecordingPath),
@@ -112,6 +117,7 @@ export async function renderRawClipVideo(options: {
     serveUrl,
     id: "narrator-quote-punchline",
     inputProps,
+    binariesDirectory,
   });
   const outputLocation = path.resolve(options.outputPath);
   await renderMedia({
@@ -121,6 +127,7 @@ export async function renderRawClipVideo(options: {
     pixelFormat: "yuv420p",
     outputLocation,
     inputProps,
+    binariesDirectory,
   });
   return outputLocation;
 }

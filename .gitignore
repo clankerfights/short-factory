@@ -4,6 +4,7 @@ dist/
 out/
 renders/
 data/
+.cache/
 tsconfig.tsbuildinfo
 .env
 .env.*
