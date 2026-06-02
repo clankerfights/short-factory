@@ -48,8 +48,10 @@ ready-to-create request covers only the first capped window.
 `POST /api/factory/videos`
 
 Creates a quote job and runs the requested workflow. By default it records the
-base replay and renders `v1`. The request can use an existing `clipUrl`, a bare
-`clipId`, or a selected Watch archive window.
+base replay and renders `v1`, using the default template's `8x` gameplay speed.
+The request can use an existing `clipUrl`, a bare `clipId`, or a selected Watch
+archive window. Omit `clipPlaybackSpeed` for the default; pass it only when a
+specific clip needs an override.
 
 ```json
 {
@@ -57,7 +59,7 @@ base replay and renders `v1`. The request can use an existing `clipUrl`, a bare
   "hookText": "AI poker got personal",
   "finalMessageTone": "Dry, intense, and theatrical with a small pause before the last sentence.",
   "templateId": "default",
-  "clipPlaybackSpeed": 2,
+  "clipPlaybackSpeed": 8,
   "workflow": {
     "record": true,
     "renderRaw": false,
