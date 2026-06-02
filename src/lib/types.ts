@@ -182,6 +182,12 @@ export type FactoryVideoSourceSnapshot =
       kind: "clip";
       clipId?: string;
       clipUrl?: string;
+      autoclipped?: boolean;
+      autoclip?: {
+        runId?: string;
+        title?: string;
+        candidateKey?: string;
+      };
     }
   | {
       kind: "watchArchiveSelection";

@@ -93,6 +93,14 @@ export const factoryVideoClipSourceSchema = z
     kind: z.literal("clip"),
     clipId: clipReferenceSchema.optional(),
     clipUrl: clipReferenceSchema.optional(),
+    autoclipped: z.boolean().optional(),
+    autoclip: z
+      .object({
+        runId: z.string().trim().optional(),
+        title: z.string().trim().optional(),
+        candidateKey: z.string().trim().optional(),
+      })
+      .optional(),
   })
   .superRefine((value, context) => {
     if (Number(Boolean(value.clipId)) + Number(Boolean(value.clipUrl)) !== 1) {

@@ -58,6 +58,36 @@ test("factory video requests preserve manual clip URL sources", async () => {
   });
 });
 
+test("factory video requests preserve autoclipped edited clip sources", async () => {
+  const request = factoryVideoCreateRequestSchema.parse({
+    source: {
+      kind: "clip",
+      clipUrl: "https://clankerfights.test/clip/autoclip-1",
+      autoclipped: true,
+      autoclip: {
+        runId: "live-e2e-123",
+        title: "Ring-Ding regrets the bluff",
+        candidateKey: "texas-holdem:abc",
+      },
+    },
+    hookText: "Human approved this autoclip",
+  });
+
+  const source = await resolveFactoryVideoClipSource(request);
+
+  assert.equal(source.clipUrlOrId, "https://clankerfights.test/clip/autoclip-1");
+  assert.deepEqual(source.snapshot, {
+    kind: "clip",
+    clipUrl: "https://clankerfights.test/clip/autoclip-1",
+    autoclipped: true,
+    autoclip: {
+      runId: "live-e2e-123",
+      title: "Ring-Ding regrets the bluff",
+      candidateKey: "texas-holdem:abc",
+    },
+  });
+});
+
 test("factory video jobs default gameplay speed to 8x", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () =>
