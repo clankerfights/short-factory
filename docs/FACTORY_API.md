@@ -67,6 +67,32 @@ base replay and renders `v1`. The request can use an existing `clipUrl`, a bare
 }
 ```
 
+Autoclipper-promoted edited clips should use an explicit clip source marker so
+they appear in the Short Factory "Autoclipped jobs" list without re-minting a
+raw archive window:
+
+```json
+{
+  "source": {
+    "kind": "clip",
+    "clipUrl": "https://clankerfights.ai/clip/abc123",
+    "autoclipped": true,
+    "autoclip": {
+      "runId": "live-e2e-20260602T150000Z",
+      "title": "AI poker got personal",
+      "candidateKey": "texas-holdem:abc123"
+    }
+  },
+  "hookText": "AI poker got personal",
+  "workflow": {
+    "record": true,
+    "renderRaw": false,
+    "renderVariants": ["v1"],
+    "overwrite": false
+  }
+}
+```
+
 From a selected Watch archive chunk:
 
 ```json

@@ -79,7 +79,10 @@ export async function resolveFactoryVideoClipSource(
 }> {
   if (input.source) {
     if (input.source.kind === "clip") {
-      return clipSource(input.source.clipUrl, input.source.clipId);
+      return clipSource(input.source.clipUrl, input.source.clipId, {
+        autoclipped: input.source.autoclipped,
+        autoclip: input.source.autoclip,
+      });
     }
 
     const automatedClip = await (
@@ -107,6 +110,10 @@ function resolveAutomatedClipUrl(url: string): string {
 function clipSource(
   clipUrl: string | undefined,
   clipId: string | undefined,
+  metadata: Pick<
+    Extract<NonNullable<FactoryJob["quoteJob"]["source"]>, { kind: "clip" }>,
+    "autoclipped" | "autoclip"
+  > = {},
 ): {
   clipUrlOrId: string;
   snapshot: NonNullable<FactoryJob["quoteJob"]["source"]>;
@@ -121,6 +128,8 @@ function clipSource(
       kind: "clip",
       ...(clipId ? { clipId } : {}),
       ...(clipUrl ? { clipUrl } : {}),
+      ...(metadata.autoclipped ? { autoclipped: true } : {}),
+      ...(metadata.autoclip ? { autoclip: metadata.autoclip } : {}),
     },
   };
 }
@@ -319,7 +328,10 @@ function editableVariantIds(
 }
 
 function isAutomatedFactoryVideoJob(job: FactoryJob): boolean {
-  return job.quoteJob.source?.kind === "watchArchiveSelection";
+  return (
+    job.quoteJob.source?.kind === "watchArchiveSelection" ||
+    (job.quoteJob.source?.kind === "clip" && job.quoteJob.source.autoclipped === true)
+  );
 }
 
 export function renderedVariantPath(

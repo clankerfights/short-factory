@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import type { FactoryJob } from "../lib/types";
 import { DEFAULT_CLIP_PLAYBACK_SPEED } from "../lib/factory-defaults";
+import { isAutoclippedFactoryVideo } from "../lib/factory-video-list";
 
 const DEFAULT_TEMPLATE_ID = "default";
 const CLIP_PLAYBACK_SPEED_OPTIONS = [1, 2, 3, 4, 6, 8, 10, 16, 32] as const;
@@ -27,7 +28,7 @@ type ApiTemplatesResponse = {
 type FactoryVideoSummary = {
   jobId: string;
   createdAt: string;
-  source?: { kind?: string };
+  source?: { kind?: string; autoclipped?: boolean };
   clip?: { game?: string };
   variants?: Array<{
     id: string;
@@ -87,9 +88,7 @@ export default function Home() {
       const response = await fetch("/api/factory/videos", { cache: "no-store" });
       const payload = (await response.json()) as ApiFactoryVideosResponse;
       if (!response.ok || !payload.videos) return;
-      const automatedVideos = payload.videos.filter(
-        (video) => video.source?.kind === "watchArchiveSelection",
-      );
+      const automatedVideos = payload.videos.filter(isAutoclippedFactoryVideo);
       setFactoryVideos(automatedVideos);
       setSelectedFactoryVideoId((current) =>
         automatedVideos.some((video) => video.jobId === current)
